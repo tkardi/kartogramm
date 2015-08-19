@@ -30,13 +30,13 @@ omavalitsus|66858|32|5479.991|1167238|213
 maakond|321257|3622|66108.533|991628|15
 katastriyksus|1934|4|12.905|7952239|616199
 
-[asustusyksus](https://github.com/tkardi/data/ehak/asustusyksus) - Estonian 
+[asustusyksus](https://github.com/tkardi/data/tree/master/ehak/asustusyksus) - Estonian 
 3rd level administrative division.
 
-[omavalitsus](https://github.com/tkardi/data/ehak/omavalitsus) - Estonian
+[omavalitsus](https://github.com/tkardi/data/tree/master/ehak/omavalitsus) - Estonian
 2nd level administrative division.
 
-[maakond](https://github.com/tkardi/data/ehak/maakond) - Estonian 1st level
+[maakond](https://github.com/tkardi/data/tree/master/ehak/omavalitsus/maakond) - Estonian 1st level
 administrative division.
 
 [katastriyksus](https://) - cadastral parcels. Data not available for download
