@@ -8,10 +8,11 @@ Estonia, with additional sources only meant as background information on medium
 and low levels.
 
 The data model is based on [Cartiqo](https://github.com/webmapper/cartiqo-documentation) by
-[Webmapper](https://www.webmapper.net/) with some country-specific changes to
-codelists (wetlands, peat mining areas) and other more general changes as
-regards to the availability of data. But this here is still a work in progress
-so further changes might come about.
+[Webmapper](https://www.webmapper.net/) licensed under
+[CC BY-SA 4.0](https://github.com/webmapper/cartiqo-documentation/blob/master/LICENSE)
+with some country-specific changes to codelists (wetlands, peat mining areas)
+and other more general changes as regards to the availability of data. But
+this here is still a work in progress so further changes might come about.
 
 
 ## Data sources
@@ -515,3 +516,6 @@ layers and their respective source data for these zooms
 | natural        | 1:10K [Estonian Topographic Database](https://geoportaal.maaamet.ee/eng/Spatial-Data/Estonian-Topographic-Database-p305.html) |
 | agricultural   | 1:10K [Estonian Topographic Database](https://geoportaal.maaamet.ee/eng/Spatial-Data/Estonian-Topographic-Database-p305.html) |
 | labels         | 1:10K [Estonian Topographic Database](https://geoportaal.maaamet.ee/eng/Spatial-Data/Estonian-Topographic-Database-p305.html), [Estonian address data](https://xgis.maaamet.ee/adsavalik/extracts) (from zooms 14+), Unofficial urban districts for city of Tartu, Unofficial urban districts for city of Tallinn |
+
+## License
+This database schema is released under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
