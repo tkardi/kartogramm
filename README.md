@@ -20,7 +20,7 @@ this here is still a work in progress so further changes might come about.
 scale cultural and physical under [terms of use](https://www.naturalearthdata.com/about/terms-of-use/).
 - [OpenStreetMap](https://openstreetmap.org) data for Latvia via
 [geofabrik.de](geofabrik.de) under [ODbL v 1.0](https://opendatacommons.org/licenses/odbl/1-0/index.html).
-- 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554)
+- 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554)
 by [Estonian Land Board](https://www.maaamet.ee/en) under _Maa-ameti avatud ruumiandmete litsents, 01.09.2016_
 (verbatim copy of the license incl. in the zip file).
 - 1:10K [Estonian Topographic Database](https://geoportaal.maaamet.ee/eng/Spatial-Data/Estonian-Topographic-Database-p305.html)
@@ -478,27 +478,27 @@ Low level zooms are defined as zooms 0-5 (_incl_).
 
 | Layer      | Data sources |
 |------------|--------------|
-| waterline  | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
-| water      | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV), [NaturalEarth](https://www.naturalearthdata.com/downloads/) oceans |
+| waterline  | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
+| water      | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV), [NaturalEarth](https://www.naturalearthdata.com/downloads/) oceans |
 | railways   | [NaturalEarth](https://www.naturalearthdata.com/downloads/) railroads |
-| roads      |  1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
+| roads      |  1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
 | builtup    | [NaturalEarth](https://www.naturalearthdata.com/downloads/) urban areas |
 | boundaries | [NaturalEarth](https://www.naturalearthdata.com/downloads/) admin0 boundary lines |
-| labels     | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554), [OpenStreetMap](https://openstreetmap.org), [NaturalEarth](https://www.naturalearthdata.com/downloads/) |
+| labels     | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554), [OpenStreetMap](https://openstreetmap.org), [NaturalEarth](https://www.naturalearthdata.com/downloads/) |
 
 ### Med-level zooms
 Medium level zooms are defined as zooms 6-10 (_incl_).
 
 | Layer      | Data sources |
 |------------|--------------|
-| waterline  | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
-| water      | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV), [NaturalEarth](https://www.naturalearthdata.com/downloads/) oceans |
-| railways   | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [NaturalEarth](https://www.naturalearthdata.com/downloads/) railroads (LV) |
-| roads      | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
-| builtup    | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV)
-| boundaries | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554), [Estonian administrative division](https://geoportaal.maaamet.ee/eng/Spatial-Data/Administrative-and-Settlement-Division-p312.html), 1:1.2M generalized Latvian administrative division |
-| natural    | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
-| labels     | 1:125K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [Estonian address data](https://xgis.maaamet.ee/adsavalik/extracts) (EE), [OpenStreetMap](https://openstreetmap.org) (LV), 1:1.2M generalized Latvian administrative division (LV) |
+| waterline  | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
+| water      | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV), [NaturalEarth](https://www.naturalearthdata.com/downloads/) oceans |
+| railways   | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [NaturalEarth](https://www.naturalearthdata.com/downloads/) railroads (LV) |
+| roads      | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
+| builtup    | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV)
+| boundaries | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554), [Estonian administrative division](https://geoportaal.maaamet.ee/eng/Spatial-Data/Administrative-and-Settlement-Division-p312.html), 1:1.2M generalized Latvian administrative division |
+| natural    | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [OpenStreetMap](https://openstreetmap.org) (LV) |
+| labels     | 1:250K [Generalized Estonian Topographic data](https://geoportaal.maaamet.ee/index.php?lang_id=2&page_id=554) (EE), [Estonian address data](https://xgis.maaamet.ee/adsavalik/extracts) (EE), [OpenStreetMap](https://openstreetmap.org) (LV), 1:1.2M generalized Latvian administrative division (LV) |
 
 ### High-level zooms
 High level zooms are defined as zooms 11+. The following table lists available
