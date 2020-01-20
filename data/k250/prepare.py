@@ -6,6 +6,8 @@ import os
 import subprocess
 import tempfile
 
+from datetime import datetime
+
 URL = 'https://geoportaal.maaamet.ee/docs/Avaandmed/Topo250T_Maaamet_SHP.zip'
 FILES = [
     {'filename': 'Kolvik', 'params': '-S'},
