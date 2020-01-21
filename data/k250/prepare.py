@@ -35,7 +35,7 @@ def prepare(**kwargs):
             if 'params' not in kw:
                 kw['params'] = ''
             kw.update(kwargs)
-            cmd = 'shp2pgsql -d -s 3301 -g geom -W "cp1257" -I  %(params)s %(filename)s vectiles_input.%(tabname)s | psql -h %(hostname)s -d %(dbname)s -U %(username)s --quiet' % kw
+            cmd = 'shp2pgsql -d -s 3301 -g geom -W "cp1257" -I  %(params)s %(filename)s vectiles_input.%(tabname)s | psql -h %(host)s -d %(dbname)s -U %(user)s --quiet' % kw
             print ('%s Importing %s to vectiles_input.%s' % (datetime.now(), kw['filename'], kw['tabname']))
             subprocess.call(cmd, shell=True)
             print('%s Done' % datetime.now())
@@ -44,7 +44,7 @@ def prepare(**kwargs):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '-H', '--hostname',
+        '-H', '--host',
         help='Specify db server host name defaults to `localhost`.',
         default='localhost'
     )
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         default='postgres'
     )
     parser.add_argument(
-        '-U', '--username',
+        '-U', '--user',
         help='Specify db username, defaults to `postgres`.',
         default='postgres'
     )
