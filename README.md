@@ -14,6 +14,9 @@ with some country-specific changes to codelists (wetlands, peat mining areas)
 and other more general changes as regards to the availability of data. But
 this here is still a work in progress so further changes might come about.
 
+Preview versions of tiles:
+- [here](https://tkardi.ee/kartogramm/map/#15/58.38624/26.71528/-8.8/40)
+- [here](https://tkardi.ee/kartogramm/map/data.html/#7.08/58.823/25.347)
 
 ## Data sources
 - [NaturalEarth](https://www.naturalearthdata.com/downloads/) v 4.1.0 large
