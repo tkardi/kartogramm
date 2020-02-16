@@ -183,7 +183,7 @@ create index sidx__baltic_admin
 -- oceans
 drop table if exists vectiles_input.oceans;
 create table vectiles_input.oceans (
-    geom geometry(Polygon, 3301),
+    geom geometry(Polygon, 4326),
     oid serial not null
 );
 
