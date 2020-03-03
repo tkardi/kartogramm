@@ -983,7 +983,7 @@ select
     'settlement'::vectiles.type_boundaries,
     'settlement.'::vectiles.subtype_boundaries,
     false as on_water
-from ehak.baltic_admin x
+from vectiles_input.baltic_admin x
 where x.left_a3 is not null or x.right_a3 is not null
 ;
 
@@ -1011,7 +1011,7 @@ select
     'municipality'::vectiles.type_boundaries,
     'municipality.'::vectiles.subtype_boundaries,
     false as on_water
-from ehak.baltic_admin x
+from vectiles_input.baltic_admin x
 where coalesce(x.left_a2, '-1') != coalesce(x.right_a2, '-1')
 group by x.left_a2, x.right_a2, x.left_country_code, x.right_country_code
 ;
@@ -1039,7 +1039,7 @@ select
     'province'::vectiles.type_boundaries,
     'province.'::vectiles.subtype_boundaries,
     false as on_water
-from ehak.baltic_admin x
+from vectiles_input.baltic_admin x
 where coalesce(x.left_a1, '-1') != coalesce(x.right_a1, '-1')
 group by x.left_a1, x.right_a1, x.left_country_code, x.right_country_code
 ;
@@ -1084,7 +1084,7 @@ select
         else 'country.foreign'
     end::vectiles.subtype_boundaries as subtype,
     false as on_water
-from ehak.baltic_admin x
+from vectiles_input.baltic_admin x
 where coalesce(x.left_country_code, '-1') != coalesce(x.right_country_code, '-1')
 group by x.left_a1, x.right_a1, x.left_country_code, x.right_country_code
 ;
@@ -1095,59 +1095,32 @@ insert into vectiles.boundaries (
 )
 select
     geom, null as originalid,
+    left_name as name_left,
+    right_name as name_right,
     case
-        when tyyp = 'Kontrolljoon maismaal' then 'Venemaa'
-        when tyyp = 'Kontrolljoon veekogus' then 'Eesti'
-        when tyyp = 'Riigipiir veekogus' then null
-    end as name_left,
-    case
-        when tyyp = 'Kontrolljoon maismaal' then 'Eesti'
-        when tyyp = 'Kontrolljoon veekogus' then 'Venemaa'
-        when tyyp = 'Riigipiir veekogus' then 'Eesti'
-    end as name_right,
-    case
-        when tyyp = 'Kontrolljoon maismaal' then 'RUS'
-        when tyyp = 'Kontrolljoon veekogus' then 'EST'
-        when tyyp = 'Riigipiir veekogus' then null
-    end as country_left,
-    case
-        when tyyp = 'Kontrolljoon maismaal' then 'EST'
-        when tyyp = 'Kontrolljoon veekogus' then 'RUS'
-        when tyyp = 'Riigipiir veekogus' then 'EST'
-    end as country_right,
-    'country'::vectiles.type_boundaries as type,
-    'country.domestic'::vectiles.subtype_boundaries,
-    case
-        when tyyp like '% veekogus' then true
-        else false
-    end as on_water
-from vectiles.k250_piir
-where tyyp != 'Riigipiir maismaal'
-;
-
-insert into vectiles.boundaries (
-    geom, originalid, name_left, name_right, country_left, country_right, type, subtype, on_water
-)
-select
-    geom, null as originalid, left_name, right_name,
-    case
+        when left_country_code = 'RU' then 'RUS'
         when left_country_code = 'EE' then 'EST'
         when left_country_code = 'LV' then 'LVA'
-        when left_country_code = 'LT' then 'LTA'
-        when left_country_code = 'RU' then 'RUS'
-        else null
+        when left_country_code = 'LT' then 'LTU'
+		else null
     end as country_left,
     case
+        when right_country_code = 'RU' then 'RUS'
         when right_country_code = 'EE' then 'EST'
         when right_country_code = 'LV' then 'LVA'
-        when right_country_code = 'LT' then 'LTA'
-        when right_country_code = 'RU' then 'RUS'
-        else null
+        when right_country_code = 'LT' then 'LTU'
+		else null
     end as country_right,
     'country'::vectiles.type_boundaries as type,
-    'country.foreign'::vectiles.subtype_boundaries,
+    case
+        when 'EE' = any(array[left_country_code, right_country_code]) then 'country.domestic'
+        else 'country.foreign'
+    end::vectiles.subtype_boundaries as subtype,
     on_water
-from ehak.baltic_a0_expanded_lines where on_water = true and 'EE' != all(array[coalesce(left_country_code,''), coalesce(right_country_code,'')])
+from
+    vectiles_input.baltic_a0_expanded
+group by
+    left_name, right_name, left_country_code, right_country_code, on_water
 ;
 
 
