@@ -16,6 +16,11 @@ by applying a 10 nautical mile buffer to the LV Baltic Sea coastline from
 [Open Data Portal Watch](https://data.wu.ac.at/schema/data_gov_lv/ZTNkNjA2ZjItNmQzOC00NDRkLWI3NjctMTE5ZmRjYzQzNWZl)
 used under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
+This layer is downloadable from
+[https://tkardi.ee/kartogramm/data/admin/baltic_a0_expanded.json](https://tkardi.ee/kartogramm/data/admin/baltic_a0_expanded.json)
+and shared under [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/)
+
+
 ## baltic_admin
 
 The `baltic_admin` layer has bee created by fusing merging of
@@ -32,3 +37,7 @@ from LV units (`ST_Difference`) and gaps between the two countries have been
 filled and added to the LV units. `v.clean` using GRASS and then converted to
 lines using a little utility available at
 [tkardi/mesher](https://github.com/tkardi/mesher/)
+
+This layer is downloadable from
+[https://tkardi.ee/kartogramm/data/admin/baltic_admin.json](https://tkardi.ee/kartogramm/data/admin/baltic_admin.json)
+and shared under [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/)

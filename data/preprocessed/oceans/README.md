@@ -14,3 +14,7 @@ and that of Latvia by 1:1.2M generalized Latvian administrative division (as of 
 [Latvia Open Data Portal](https://data.gov.lv) via
 [Open Data Portal Watch](https://data.wu.ac.at/schema/data_gov_lv/ZTNkNjA2ZjItNmQzOC00NDRkLWI3NjctMTE5ZmRjYzQzNWZl)
 used under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+This layer is downloadable from
+[https://tkardi.ee/kartogramm/data/oceans/oceans.json](https://tkardi.ee/kartogramm/data/oceans/oceans.json)
+and shared under [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/)
