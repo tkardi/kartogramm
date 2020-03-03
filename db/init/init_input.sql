@@ -196,3 +196,116 @@ create index sidx__oceans
     on vectiles_input.oceans
         using gist(geom)
 ;
+
+-- lv_waterways
+drop table if exists vectiles_input.lv_waterways;
+create table vectiles_input.lv_waterways (
+    oid serial,
+    osm_id bigint,
+    code int,
+    fclass varchar(150),
+    width int,
+    name varchar(250),
+    geom geometry(LineString, 4326)
+);
+
+alter table vectiles_input.lv_waterways
+    add constraint pk__lv_waterways
+        primary key (oid)
+;
+
+create index sidx__lv_waterways
+    on vectiles_input.lv_waterways
+        using gist(geom)
+;
+
+-- lv_water
+drop table if exists vectiles_input.lv_water;
+create table vectiles_input.lv_water (
+    oid serial,
+    osm_id bigint,
+    code int,
+    fclass varchar(150),
+    name varchar(250),
+    geom geometry(Polygon, 4326)
+);
+
+
+alter table vectiles_input.lv_water
+    add constraint pk__lv_water
+        primary key (oid)
+;
+
+create index sidx__lv_water
+    on vectiles_input.lv_water
+        using gist(geom)
+;
+
+-- lv_landuse
+drop table if exists vectiles_input.lv_landuse;
+create table vectiles_input.lv_landuse (
+    oid serial,
+    osm_id bigint,
+    code int,
+    fclass varchar(150),
+    name varchar(250),
+    geom geometry(Polygon, 4326)
+);
+
+
+alter table vectiles_input.lv_landuse
+    add constraint pk__lv_landuse
+        primary key (oid)
+;
+
+create index sidx__lv_landuse
+    on vectiles_input.lv_landuse
+        using gist(geom)
+;
+
+-- lv_roads
+drop table if exists vectiles_input.lv_roads;
+create table vectiles_input.lv_roads (
+    oid serial,
+    osm_id bigint,
+    code int,
+    fclass varchar(150),
+    name varchar(250),
+    ref varchar(100),
+    oneway varchar(10),
+    bridge varchar(10),
+    tunnel varchar(10),
+    geom geometry(LineString, 4326)
+);
+
+
+alter table vectiles_input.lv_roads
+    add constraint pk__lv_roads
+        primary key (oid)
+;
+
+create index sidx__lv_roads
+    on vectiles_input.lv_roads
+        using gist(geom)
+;
+
+
+--lv_railways
+drop table if exists vectiles_input.lv_railways;
+create table vectiles_input.lv_railways (
+    oid serial,
+    category int,
+    disp_scale varchar(50),
+    geom geometry(LineString, 4326)
+);
+
+
+alter table vectiles_input.lv_railways
+    add constraint pk__lv_railways
+        primary key (oid)
+;
+
+create index sidx__lv_railways
+    on vectiles_input.lv_railways
+        using gist(geom)
+;
