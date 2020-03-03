@@ -49,6 +49,10 @@ def prepare(**kwargs):
         print ('%s Importing %s to vectiles_input.%s' % (datetime.now(), kw['fp'], kw['tabname']))
         subprocess.call(cmd, shell=True)
         print('%s Done' % datetime.now())
+        with psycopg2.connect(**kwargs) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute('update vectiles_input.ee_address_object set geom = st_setsrid(st_point(viitepunkt_x, viitepunkt_y), 3301)')
+        print('%s Done geom update' % datetime.now())
 
 
 if __name__ == '__main__':
