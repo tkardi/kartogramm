@@ -1,4 +1,8 @@
-import tartu, tallinn
+try:
+    from informal_district import tartu, tallinn
+except ModuleNotFoundError as e:
+    import tartu, tallinn
+
 import argparse
 import psycopg2
 

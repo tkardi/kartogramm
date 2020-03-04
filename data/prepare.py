@@ -1,14 +1,20 @@
-try:
-    from ne import cultural, physical
-except ModuleNotFoundError as e:
-    import cultural, physical
-    
+from ads import prepare as ads_prep
+from etak import prepare as etak_prep
+from informal_district import prepare as informal_district_prep
+from k250 import prepare as k250_prep
+from ne import prepare as ne_prep
+from preprocessed import prepare as preprocessed_prep
+
 import argparse
 import psycopg2
 
 def prepare(**kwargs):
-    cultural.prepare(**kwargs)
-    physical.prepare(**kwargs)
+    ads_prep.prepare(**kwargs)
+    etak_prep.prepare(**kwargs)
+    informal_district_prep.prepare(**kwargs)
+    k250_prep.prepare(**kwargs)
+    ne_prep.prepare(**kwargs)
+    preprocessed_prep.prepare(**kwargs)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
