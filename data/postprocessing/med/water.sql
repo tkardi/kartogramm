@@ -2,21 +2,38 @@
 
 truncate table vectiles.z_med_water restart identity;
 
-insert into vectiles.z_med_water(
-    geom, originalid, name, type
+drop index if exists vectiles.sidx__z_med_water;
+drop index if exists vectiles.ghidx__z_med_water;
+drop table if exists vectiles_input.tmp_z_med_water;
+
+create table vectiles_input.tmp_z_med_water as
+select
+    *
+from
+    vectiles.z_med_water
+where
+    1=0
+;
+
+insert into vectiles_input.tmp_z_med_water(
+    geom,
+    originalid, name,
+    type
 )
 select
-    (st_dump((geom))).geom as geom,
+    st_subdivide((st_dump((geom))).geom, 512) as geom,
     null as etak_id, null as name,
     'sea'::vectiles.type_water
 from vectiles_input.oceans
 ;
 
-insert into vectiles.z_med_water(
-    geom, originalid, name, type
+insert into vectiles_input.tmp_z_med_water(
+    geom,
+    originalid,
+    name, type
 )
 select
-    st_transform((st_dump((geom))).geom, 4326) as geom,
+    st_subdivide(st_transform((st_dump((geom))).geom, 4326), 512) as geom,
     null as etak_id, nimetus as name,
     case
         when tyyp = 'Seisuveekogu' then 'lake'
@@ -29,8 +46,15 @@ where
 ;
 
 
+insert into vectiles_input.tmp_z_med_water(
+    geom,
+    originalid,
+    name, type
+)
 select
-    (st_dump(st_union(ring))).geom as geom, null as originalid, name, type
+    st_subdivide((st_dump(st_union(ring))).geom, 512) as geom,
+    null as originalid,
+    name, type
 from
     (
         select
@@ -50,11 +74,15 @@ group by
 ;
 
 
-insert into vectiles.z_med_water(
-    geom, originalid, name, type
+insert into vectiles_input.tmp_z_med_water(
+    geom,
+    originalid,
+    name, type
 )
 select
-    (st_dump(st_union(st_buffer(ring, 0.00005)))).geom as geom, null as originalid, name, type
+    st_subdivide((st_dump(st_union(st_buffer(ring, 0.00005)))).geom, 512) as geom,
+    null as originalid,
+    name, type
 from (
     select
         w.oid, foo.oids,
@@ -104,4 +132,34 @@ from (
 ) f
 group by
     name, type
+;
+
+
+insert into vectiles.z_med_water(
+    geom, originalid, name, type
+)
+select
+    geom, originalid, name, type
+from
+    vectiles_input.tmp_z_med_water
+order by
+    st_geohash(st_envelope(geom), 10) collate "C"
+;
+
+create index ghidx__z_med_water on
+    vectiles.z_med_water
+        (st_geohash(st_envelope(geom), 10))
+;
+
+cluster vectiles.z_med_water using
+    ghidx__z_med_water
+;
+
+create index sidx__z_med_water on
+    vectiles.z_med_water using
+        gist (geom)
+;
+
+drop table if exists
+    vectiles_input.tmp_z_med_water
 ;

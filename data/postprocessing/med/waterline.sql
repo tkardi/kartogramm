@@ -2,12 +2,28 @@
 
 truncate table vectiles.z_med_waterline restart identity;
 
+drop index if exists vectiles.sidx__z_med_waterline;
+drop index if exists vectiles.ghidx__z_med_waterline;
+drop table if exists vectiles_input.tmp_z_med_waterline;
+
+create table vectiles_input.tmp_z_med_waterline as
+select
+    *
+from
+    vectiles.z_med_waterline
+where
+    1=0
+;
+
+
 /* EE waterline from k250_vooluvesi */
-insert into vectiles.z_med_waterline(
-    geom, originalid, name, type, class, underground
+insert into vectiles_input.tmp_z_med_waterline(
+    geom,
+    originalid,
+    name, type, class, underground
 )
 select
-    st_transform((st_dump(st_linemerge(st_collect(geom)))).geom, 4326) as geom,
+    st_subdivide(st_transform((st_dump(st_linemerge(st_collect(geom)))).geom, 4326), 512) as geom,
     null as originalid,
     name, type, class, false as underground
 from (
@@ -41,12 +57,14 @@ group by name, type, class
 ;
 
 /* LV waterline from lv_waterways */
-insert into vectiles.z_med_waterline(
-    geom, originalid,
+insert into vectiles_input.tmp_z_med_waterline(
+    geom,
+    originalid,
     name, type, class, underground
 )
 select
-    (st_dump(st_linemerge(st_collect(f.geom)))).geom as geom, null as originalid,
+    st_subdivide((st_dump(st_linemerge(st_collect(f.geom)))).geom, 512) as geom,
+    null as originalid,
     f.name, f.type, f.class, false as underground
 from (
     select
@@ -94,4 +112,36 @@ from (
 ) f
 group by
     name, type, class
+;
+
+
+insert into vectiles.z_med_waterline(
+    geom, originalid,
+    name, type, class, underground
+)
+select
+    geom, originalid,
+    name, type, class, underground
+from
+    vectiles_input.tmp_z_med_waterline
+order by
+    st_geohash(st_envelope(geom), 10) collate "C"
+;
+
+create index ghidx__z_med_waterline on
+    vectiles.z_med_waterline
+        (st_geohash(st_envelope(geom),10))
+;
+
+cluster vectiles.z_med_waterline using
+    ghidx__z_med_waterline
+;
+
+create index sidx__z_med_waterline on
+    vectiles.z_med_waterline using
+        gist (geom)
+;
+
+drop table if exists
+    vectiles_input.tmp_z_med_waterline
 ;
