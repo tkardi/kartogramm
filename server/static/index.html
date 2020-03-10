@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Kartogramm demotiles</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.51.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body { margin:0; padding:0; }
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+    </style>
+</head>
+<body>
+    <style>
+        #menu {
+            background: #fff;
+            position: absolute;
+            z-index: 1;
+            top: 10px;
+            left: 10px;
+            border-radius: 3px;
+            width: 120px;
+            border: 1px solid rgba(0, 0, 0, 0.4);
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        #menu a {
+            font-size: 13px;
+            color: #404040;
+            display: block;
+            margin: 0;
+            padding: 0;
+            padding: 10px;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+            text-align: center;
+        }
+
+        #menu a:last-child {
+            border: none;
+        }
+
+        #menu a:hover {
+            background-color: #f8f8f8;
+            color: #404040;
+        }
+
+        #menu a.active {
+            background-color: #3887be;
+            color: #ffffff;
+        }
+
+        #menu a.active:hover {
+            background: #3074a4;
+        }
+    </style>
+
+    <nav id='menu'></nav>
+    <div id='map'></div>
+
+    <script>
+
+    var map = new mapboxgl.Map({
+        'container': 'map',
+        'zoom': 6.5,
+        'center': [24.451, 58.062],
+        'hash': true,
+        'style': {
+            'version': 8,
+            'sources': {
+                'kartogramm': {
+                    'type': 'vector',
+                    'tiles': [
+                        'http://localhost:5000/{z}/{x}/{y}/'
+                    ]
+                }
+            },
+            'glyphs': 'https://tkardi.ee/kartogramm/glyphs/{fontstack}/{range}.pbf',
+            'layers': [
+                {
+                    'id': 'water',
+                    'type': 'fill',
+                    'source': 'kartogramm',
+                    'source-layer': 'water',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'fill-opacity': 0.7,
+                        'fill-color': 'black'
+                    }
+                },
+                {
+                    'id': 'waterline',
+                    'type': 'line',
+                    'source': 'kartogramm',
+                    'source-layer': 'waterline',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'line-opacity': 0.7,
+                        'line-color': 'blue',
+                        'line-width': 1
+                    }
+                },
+                {
+                    'id': 'natural',
+                    'type': 'fill',
+                    'source': 'kartogramm',
+                    'source-layer': 'natural',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'fill-opacity': 0.7,
+                        'fill-color': 'green'
+                    }
+                },
+                {
+                    'id': 'infrastructure',
+                    'type': 'fill',
+                    'source': 'kartogramm',
+                    'source-layer': 'infrastructure',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'fill-opacity': 0.7,
+                        'fill-color': 'silver'
+                    }
+                },
+                {
+                    'id': 'builtup',
+                    'type': 'fill',
+                    'source': 'kartogramm',
+                    'source-layer': 'builtup',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'fill-opacity': 0.7,
+                        'fill-color': 'grey'
+                    }
+                },
+                {
+                    'id': 'agricultural',
+                    'type': 'fill',
+                    'source': 'kartogramm',
+                    'source-layer': 'agricultural',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'fill-opacity': 0.7,
+                        'fill-color': 'yellow'
+                    }
+                },
+                {
+                    'id': 'roads',
+                    'type': 'line',
+                    'source': 'kartogramm',
+                    'source-layer': 'roads',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'line-opacity': 0.7,
+                        'line-color': 'orange',
+                        'line-width': 1
+                    }
+                },
+                {
+                    'id': 'railways',
+                    'type': 'line',
+                    'source': 'kartogramm',
+                    'source-layer': 'railways',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'line-opacity': 0.7,
+                        'line-color': 'purple',
+                        'line-width': 1
+                    }
+                },
+                {
+                    'id': 'boundaries',
+                    'type': 'line',
+                    'source': 'kartogramm',
+                    'source-layer': 'boundaries',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'line-opacity': 0.7,
+                        'line-color': 'red',
+                        'line-width': 1
+                    }
+                },
+                {
+                    'id': 'labels',
+                    'type': 'circle',
+                    'source': 'kartogramm',
+                    'source-layer': 'labels',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'circle-stroke-width': 1,
+                        'circle-color': '#2e201c',
+                        'circle-stroke-color': '#f7f2f0',
+                        'circle-radius': 2
+                    }
+                },
+                {
+                    'id': 'tile-centroid',
+                    'type': 'circle',
+                    'source': 'kartogramm',
+                    'source-layer': 'bounds_centroid',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'circle-stroke-width': 1,
+                        'circle-color': 'black',
+                        'circle-stroke-color': 'red',
+                        'circle-radius': 4
+                    }
+                },
+                {
+                    'id': 'tile-bounds',
+                    'type': 'line',
+                    'source': 'kartogramm',
+                    'source-layer': 'bounds',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    'paint': {
+                        'line-opacity': 1,
+                        'line-color': 'red',
+                        'line-width': 2
+                    }
+                },
+                {
+                    'id': 'tile-centroid-label',
+                    'type': 'symbol',
+                    'source': 'kartogramm',
+                    'source-layer': 'bounds_centroid',
+                    'minzoom': 0,
+                    'maxzoom': 22,
+                    "layout": {
+                      "text-font": [
+                        "OpenSansBold"
+                      ],
+                      "symbol-placement": "point",
+                      "text-field": "{z}/{x}/{y}",
+                      "text-size": 12,
+                      "text-keep-upright": false,
+                      "text-max-angle": 45,
+                      "text-pitch-alignment": "map",
+                      "text-rotation-alignment": "map",
+                      "text-offset":[0.5, 1]
+                    },
+                    "paint": {
+                      "text-halo-color": "red",
+                      "text-halo-width": 2,
+                      "text-translate-anchor": "map"
+                    }
+
+                }
+            ]
+        }
+    });
+
+
+    map.addControl(new mapboxgl.NavigationControl());
+
+    map.on('style.load', function(e) {
+
+        var toggleableLayerIds = Object.keys(map.style._layers);
+
+        for (var i = 0; i < toggleableLayerIds.length; i++) {
+            var id = toggleableLayerIds[i];
+
+            var link = document.createElement('a');
+            link.href = '#';
+            link.className = 'active';
+            link.textContent = id;
+
+            link.onclick = function(e) {
+                var clickedLayer = this.textContent;
+                e.preventDefault();
+                e.stopPropagation();
+
+                var visibility = map.getLayoutProperty(clickedLayer, 'visibility');
+
+                if (visibility === 'visible') {
+                    map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+                    this.className = '';
+                } else {
+                    this.className = 'active';
+                    map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+                }
+            };
+
+        var layers = document.getElementById('menu');
+        layers.appendChild(link);
+        }
+    });
+
+
+    </script>
+
+</body>
+</html>
