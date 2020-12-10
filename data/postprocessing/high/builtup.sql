@@ -8,7 +8,7 @@ insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom,
     etak_id, null as name,
     'area'::vectiles.type_builtup,
     case
@@ -23,7 +23,7 @@ insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom  as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256)  as geom, etak_id, null as name,
     'building'::vectiles.type_builtup,
     case
         when tyyp = 10 then 'building.main'
@@ -39,7 +39,7 @@ insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom  as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256)  as geom, etak_id, null as name,
     'building'::vectiles.type_builtup,
     'building.cover'::vectiles.subtype_builtup as subtype
 from vectiles_input.e_403_muu_rajatis_ka
@@ -50,7 +50,7 @@ insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom  as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256)  as geom, etak_id, null as name,
     'building'::vectiles.type_builtup,
     'building.berth'::vectiles.subtype_builtup as subtype
 from vectiles_input.e_403_muu_rajatis_ka
@@ -61,7 +61,7 @@ insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom  as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256)  as geom, etak_id, null as name,
     'building'::vectiles.type_builtup,
     'building.'::vectiles.subtype_builtup as subtype
 from vectiles_input.e_403_muu_rajatis_ka
@@ -71,7 +71,8 @@ where tyyp = 999 and lower(markused) != all(array['paadisild', 'sadamakai', 'per
 insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
-select (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom  as geom, etak_id, null as name,
+select
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256)  as geom, etak_id, null as name,
     'building'::vectiles.type_builtup,
     'building.underground'::vectiles.subtype_builtup as subtype
 from vectiles_input.e_404_maaalune_hoone_ka
@@ -81,7 +82,7 @@ insert into vectiles.builtup (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom  as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256)  as geom, etak_id, null as name,
     case
         when tyyp = 30 then 'area'
         when tyyp = 50 then 'building'

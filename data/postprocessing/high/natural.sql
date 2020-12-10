@@ -5,7 +5,7 @@ truncate table vectiles.natural restart identity;
 insert into vectiles.natural (
     geom, type, subtype
 )
-select (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom,
+select st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, 512) as geom,
     case
         when tyyp = 10 then 'high'
         else 'low'
@@ -21,7 +21,7 @@ from vectiles_input.e_305_puittaimestik_a
 insert into vectiles.natural (
     geom, originalid, name, type, subtype
 )
-select (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom, etak_id, null as name,
+select st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, 512) as geom, etak_id, null as name,
     case
         when tyyp = 10 then 'low'
         when tyyp = 20 then 'bare'
@@ -42,7 +42,7 @@ from vectiles_input.e_304_lage_a
 insert into vectiles.natural (
     geom, originalid, name, type, subtype
 )
-select (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom, etak_id, null as name,
+select st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, 512) as geom, etak_id, null as name,
     case
         when tyyp in (10,20,30,40) and puis = 10 then 'low'
         else 'bare'
@@ -60,7 +60,7 @@ insert into vectiles.natural (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, 512) as geom, etak_id, null as name,
    'bare'::vectiles.type_natural as type,
    'bare.peat'::vectiles.subtype_natural as subtype
 from vectiles_input.e_307_turbavali_a
@@ -71,7 +71,7 @@ insert into vectiles.natural (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom, etak_id, null as name,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, 512) as geom, etak_id, null as name,
    'low'::vectiles.type_natural as type,
    'low.grass'::vectiles.subtype_natural as subtype
 from vectiles_input.e_301_muu_kolvik_a

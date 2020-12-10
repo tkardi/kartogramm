@@ -8,7 +8,7 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom as geom,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom,
     etak_id, null as name,
     case
         when tyyp = 10 then 'road'
@@ -40,7 +40,7 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom,
     etak_id, nullif(nimetus, ''),
     case
         when tyyp = 60 then 'tunnel'
@@ -57,7 +57,7 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, etak_id, null,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom, etak_id, null,
     'parking'::vectiles.type_infrastructure as type,
     'parking.'::vectiles.subtype_infrastructure as subtype
 from vectiles_input.e_403_muu_rajatis_ka
@@ -68,7 +68,7 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, etak_id, null,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom, etak_id, null,
     'railway'::vectiles.type_infrastructure as type,
     'railway.platform'::vectiles.subtype_infrastructure as subtype
 from vectiles_input.e_403_muu_rajatis_ka
@@ -79,7 +79,7 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, etak_id, null,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom, etak_id, null,
     'jetty'::vectiles.type_infrastructure as type,
     'jetty.'::vectiles.subtype_infrastructure as subtype
 from vectiles_input.e_403_muu_rajatis_ka
@@ -90,7 +90,7 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
-    (st_dump(st_buffer(st_snaptogrid(st_force2d(geom),1), 0))).geom, etak_id, null,
+    st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom, etak_id, null,
     'runway'::vectiles.type_infrastructure as type,
     'runway.'::vectiles.subtype_infrastructure as subtype
 from vectiles_input.e_301_muu_kolvik_ka
