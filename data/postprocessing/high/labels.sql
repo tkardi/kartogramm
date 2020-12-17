@@ -300,3 +300,239 @@ where
             l.type::text=any(array['nature', 'water'])
         )
 ;
+
+
+drop table if exists vectiles_input.streetlinemerge_cp;
+create table vectiles_input.streetlinemerge_cp as
+select
+    line.oid as lineoid,
+    st_closestpoint(line.geom, ee.geom) as p,
+    ee.geom as pnt, line.geom as line, ee.tase7_nimetus, line.ads_oid
+from
+    vectiles_input.ee_address_object ee,
+    vectiles_input.streetlinemerge f
+        cross join lateral (
+            select
+                oid, ads_oid, geom as geom
+                from vectiles_input.streetmerge j
+	          where
+                j.ads_oid = vectiles_input.ads_oid
+	          order by
+                ee.geom <-> j.geom
+	          limit 1
+        ) line
+where
+    ee.adob_liik in ('EE', 'ME') and
+    ee.un_tunnus = 1 and
+    ee.tase7_nimetus not like '%/%' and
+    vectiles_input.a5_code = ee.tase5_kood
+;
+
+alter table vectiles_input.streetlinemerge_cp
+    add column
+        oid serial
+;
+
+alter table vectiles_input.streetlinemerge_cp
+    add constraint
+        pk__trt_streetmegre_cp
+            primary key (oid)
+;
+
+alter table vectiles_input.streetlinemerge_cp
+    add column
+        line_start geometry(linestring, 3301)
+;
+
+alter table vectiles_input.streetlinemerge_cp
+    add column
+        line_end geometry(linestring, 3301)
+;
+
+alter table vectiles_input.streetlinemerge_cp
+    add column
+        line_med geometry(linestring, 3301)
+;
+
+update vectiles_input.streetlinemerge_cp set
+    line_start = st_force2d(st_linesubstring(f.geom, 0, 5/st_length(geom))),
+	  line_end = st_force2d(st_linesubstring(f.geom, (st_length(geom)-5)/st_length(geom), 1)),
+	  line_med = st_force2d(st_linesubstring(f.geom, ((st_length(geom)/2)-2.5)/st_length(geom), ((st_length(geom)/2)+2.5)/st_length(geom)))
+from (
+  	select
+        oid, st_linesubstring(
+            line,
+            15/st_length(line),
+            (st_length(line)-15)/st_length(line)
+        ) as geom
+	  from
+        vectiles_input.streetlinemerge_cp
+    where
+        st_length(line) >= 40
+) f
+where
+    vectiles_input.oid = streetlinemerge_cp.oid
+;
+
+create index sidx__streetlinemerge_cp__line_start on
+    vectiles_input.streetlinemerge_cp
+        using gist (line_start)
+;
+
+create index sidx__streetlinemerge_cp__line_end on
+    vectiles_input.streetlinemerge_cp
+        using gist (line_end)
+;
+
+create index sidx__streetlinemerge_cp__line_med on
+    vectiles_input.streetlinemerge_cp
+        using gist (line_med)
+;
+
+drop table if exists vectiles_input.adrsegs;
+create table vectiles_input.adrsegs as
+select
+    lineoid, ads_oid, minnr, maxnr, side,
+    minlocation, maxlocation,
+    st_offsetcurve(minlocation::geometry(linestring, 3301), case when side = 'R' then -1 else 1 end * 3.0) as min_geom,
+    st_offsetcurve(maxlocation::geometry(linestring, 3301), case when side = 'R' then -1 else 1 end * 3.0) as  max_geom,
+    st_offsetcurve(medlocation::geometry(linestring, 3301), case when side = 'R' then -1 else 1 end * 3.0) as  med_geom,
+    minsource, maxsource, medsource,
+    mindeg, maxdeg
+from (
+    select
+        lineoid, ads_oid,
+        trim(leading '0' from minnr) as minnr,
+        trim(leading '0' from maxnr) as maxnr,
+        side,
+        case
+	          when count=1 then null
+            when st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)]) > st_distance(st_endpoint(line_start), pnts[1])
+				        then line_start
+		        else line_end
+	      end as minlocation,
+        case
+	          when count=1 then null
+		        when st_distance(st_endpoint(line_start), pnts[1]) > st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)])
+				        then line_start
+			      else line_end
+	      end as maxlocation,
+	      case
+	          when count = 1 then line_med
+            else null
+	      end as medlocation,
+        case
+	          when count=1 then null
+            when st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)]) > st_distance(st_endpoint(line_start), pnts[1])
+				        then 'line_start'
+		        else 'line_end'
+	      end as minsource,
+        case
+	          when count=1 then null
+		        when st_distance(st_endpoint(line_start), pnts[1]) > st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)])
+				        then 'line_start'
+			      else 'line_end'
+	      end as maxsource,
+	      case
+	          when count = 1 then 'line_med'
+            else null
+	      end as medsource,
+	      degrees(deg[1]) as mindeg,
+        degrees(deg[array_upper(deg, 1)]) as maxdeg
+    from (
+        select
+            array_agg(deg order by tase7_nimetus)as deg, lineoid, ads_oid, side,
+            min(tase7_nimetus) as minnr, max(tase7_nimetus) as maxnr,
+            array_agg(pnt order by tase7_nimetus) as pnts,
+	          min(line_start)::geometry(linestring, 3301) as line_start,
+	          min(line_end)::geometry(linestring, 3301) as line_end,
+	          min(line_med)::geometry(linestring, 3301) as line_med,
+	          count(1)
+        from (
+            select
+                oid, line_start, line_end, line_med,
+	              deg, lineoid, lpad(tase7_nimetus, 5, '0') as tase7_nimetus, ads_oid,
+	              case
+              	    when side between 0.0 and pi() then 'R'
+              	    when side between -1*pi() and 0.0 then 'L'
+              	    when side > pi() then 'L'
+		                else 'R'
+                end as side, geom, pnt,
+	              degrees(side) as rad, vec, seg
+            from (
+                select
+                    tase7_nimetus, ads_oid,
+                    (
+                        st_azimuth(st_startpoint(h.vec), st_endpoint(h.vec)) -
+                        st_azimuth(st_startpoint(h.seg), st_endpoint(h.seg))
+                    ) as side,
+                    st_azimuth(st_startpoint(h.vec), st_endpoint(h.vec)) as deg,
+	                  vec as vec, seg as seg,
+	                  line as geom, pnt, lineoid,
+	                  oid, line_start, line_end, line_med
+                from (
+                    select
+	                      cp.oid, line_start, line_end, line_med,
+                        st_makeLine(cp.p, pnt) vec,
+		                    case
+			                      when st_linelocatepoint(line, cp.p) < 0.95
+         	                      then st_makeline(cp.p, st_lineinterpolatepoint(line, st_linelocatepoint(line, cp.p) * 1.01))
+	                          else
+	                              st_makeline(st_lineinterpolatepoint(line,0.95), cp.p)
+                        end as seg,
+		                    tase7_nimetus, ads_oid, line, pnt, lineoid
+                    from
+                        vectiles_input.streetlinemerge_cp cp
+                ) h
+            ) r
+        ) e
+        group by lineoid, ads_oid, side
+    ) z
+) y
+;
+
+alter table vectiles_input.adrsegs
+    add column
+        gid serial not null
+;
+
+alter table vectiles_input.adrsegs
+    add constraint
+        pk__adrsegs primary key (
+            gid
+        )
+;
+
+insert into vectiles.labels (
+    geom, originalid, name, type, subtype, rotation
+)
+select
+    case
+        when minsource='line_start' then st_endpoint(min_geom)
+        else st_startpoint(min_geom)
+    end as geom, null as originalid, minnr as name,
+    'addressrange' as type, 'addressrange.'||minsource as subtype,
+    degrees(st_azimuth(st_startpoint(min_geom), st_endpoint(min_geom)) - pi()/2) as rotation
+from vectiles_input.adrsegs
+where
+    min_geom is not null
+union all
+select
+    case
+        when maxsource='line_start' then st_endpoint(min_geom)
+        else st_startpoint(max_geom)
+    end as geom, null as originalid, maxnr as name,
+    'addressrange' as type, 'addressrange.'||maxsource as subtype,
+    degrees(st_azimuth(st_startpoint(max_geom), st_endpoint(max_geom)) - pi()/2) as rotation
+from vectiles_input.adrsegs
+where
+    max_geom is not null
+union all
+select
+    st_centroid(med_geom) as geom, null as originalid, minnr as name,
+    'addressrange' as type, 'addressrange.'||medsource as subtype,
+    degrees(st_azimuth(st_startpoint(med_geom), st_endpoint(med_geom)) - pi()/2) as rotation
+from vectiles_input.adrsegs
+where
+    med_geom is not null
+;
