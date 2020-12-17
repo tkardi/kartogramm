@@ -223,7 +223,15 @@ Point locations for displaying text labels. Has a `hierarchy` property which
 can be used to filter between _more important_ and _less important_ labels, e.g.
 city names for different zoom levels. And `rotation` for rotating address
 labels _feet downwards_ so their base can be shown on a styled map towards the
-street they're associated with.
+street they're associated with. Address ranges are also available for the national
+ADS address system house number addresses for which we can establish a related
+streetline from the topographic database. These are basically a _minimum_ house
+number on this street and a _maximum_. Type `addressrange` is divided into
+three subtypes: `line_start`, `line_end` and `line_med` stating if the range min/max
+value is situated in the related streetline start or end of the vector or midway.
+This makes the label anchoring decisions a bit simpler: e.g. for
+`addressrange.line_start` it would make sense to anchor the label at the
+lower-left corner while for `addressrange.line_end` in the lower-right corner.
 
 #### enums
 
@@ -249,6 +257,9 @@ street they're associated with.
 | admin.neighborhood       |
 | address.building         |
 | address.parcel           |
+| addressrange.line_start  |
+| addressrange.line_end    |
+| addressrange.line_med    |
 | water.                   |
 | nature.                  |
 
