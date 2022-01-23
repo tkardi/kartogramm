@@ -98,7 +98,7 @@ from (
                 select
                     max(width) as w, name
                 from
-                    vectiles.lv_waterways
+                    vectiles_input.lv_waterways
                 where
                     fclass = 'river' and
                     name is not null and

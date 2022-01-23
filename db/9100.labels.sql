@@ -8,7 +8,7 @@ create type vectiles.type_labels
         'water',
         'nature',
         'address',
-        'addressrange',
+        'addressrange'
     )
 ;
 
@@ -28,7 +28,7 @@ create type vectiles.subtype_labels
         'address.parcel',
         'addressrange.line_start',
         'addressrange.line_med',
-        'addressrange.line_end'
+        'addressrange.line_end',
         'water.',
         'nature.'
     )

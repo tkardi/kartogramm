@@ -42,8 +42,8 @@ from (
         ) f
     where
         coalesce(tase3_nimetus, tase2_nimetus) like '% '||f.suf and
-        tase7_kood is not null and
-        tase8_kood is null
+        tase7_kood != '' and
+        tase8_kood = ''
     group by
         tase3_kood, tase2_kood, tase3_nimetus, tase2_nimetus, suf
 ) foo
@@ -66,7 +66,7 @@ select
 from vectiles_input.ee_address_object
 where
     adob_liik = 'OV' and
-    tase8_kood is null and tase2_nimetus = any(array['Tallinn', 'Kohtla-Järve linn'])
+    tase8_kood = '' and tase2_nimetus = any(array['Tallinn', 'Kohtla-Järve linn'])
 ) foo
 ;
 
@@ -82,8 +82,8 @@ select
 from
     vectiles_input.ee_address_object
 where
-    (tase6_kood is not null or tase7_kood is not null) and
-    tase8_kood is null and tase2_nimetus like '% vald'
+    (tase6_kood != '' or tase7_kood != '') and
+    tase8_kood = '' and tase2_nimetus like '% vald'
 group by tase2_kood, tase2_nimetus
 ;
 
@@ -98,8 +98,8 @@ select
 from
     vectiles_input.ee_address_object
 where
-    (tase6_kood is not null or tase7_kood is not null) and
-    tase8_kood is null
+    (tase6_kood != '' or tase7_kood != '') and
+    tase8_kood = ''
 group by tase1_kood, tase1_nimetus
 ;
 
@@ -301,7 +301,7 @@ where
         )
 ;
 
-
+/*
 drop table if exists vectiles_input.streetlinemerge_cp;
 create table vectiles_input.streetlinemerge_cp as
 select
@@ -314,18 +314,18 @@ from
         cross join lateral (
             select
                 oid, ads_oid, geom as geom
-                from vectiles_input.streetmerge j
-	          where
-                j.ads_oid = vectiles_input.ads_oid
-	          order by
+                from vectiles_input.streetlinemerge j
+              where
+                j.ads_oid = f.ads_oid
+              order by
                 ee.geom <-> j.geom
-	          limit 1
+              limit 1
         ) line
 where
     ee.adob_liik in ('EE', 'ME') and
     ee.un_tunnus = 1 and
     ee.tase7_nimetus not like '%/%' and
-    vectiles_input.a5_code = ee.tase5_kood
+    f.a5_code = ee.tase5_kood
 ;
 
 alter table vectiles_input.streetlinemerge_cp
@@ -356,22 +356,26 @@ alter table vectiles_input.streetlinemerge_cp
 
 update vectiles_input.streetlinemerge_cp set
     line_start = st_force2d(st_linesubstring(f.geom, 0, 5/st_length(geom))),
-	  line_end = st_force2d(st_linesubstring(f.geom, (st_length(geom)-5)/st_length(geom), 1)),
-	  line_med = st_force2d(st_linesubstring(f.geom, ((st_length(geom)/2)-2.5)/st_length(geom), ((st_length(geom)/2)+2.5)/st_length(geom)))
+    line_end = st_force2d(st_linesubstring(f.geom, (st_length(geom)-5)/st_length(geom), 1)),
+    line_med = st_force2d(st_linesubstring(f.geom, ((st_length(geom)/2)-2.5)/st_length(geom), ((st_length(geom)/2)+2.5)/st_length(geom)))
 from (
-  	select
-        oid, st_linesubstring(
-            line,
-            15/st_length(line),
-            (st_length(line)-15)/st_length(line)
-        ) as geom
-	  from
-        vectiles_input.streetlinemerge_cp
-    where
-        st_length(line) >= 40
+    select oid, (st_dump(geom)).*
+    from (
+        select
+            oid, st_linesubstring(
+                line,
+                15/st_length(line),
+                (st_length(line)-15)/st_length(line)
+            ) as geom
+          from
+            vectiles_input.streetlinemerge_cp
+        where
+            st_length(line) >= 40
+    ) g
 ) f
 where
-    vectiles_input.oid = streetlinemerge_cp.oid
+    st_length(geom) >= 40 and
+    f.oid = streetlinemerge_cp.oid
 ;
 
 create index sidx__streetlinemerge_cp__line_start on
@@ -406,59 +410,59 @@ from (
         trim(leading '0' from maxnr) as maxnr,
         side,
         case
-	          when count=1 then null
+              when count=1 then null
             when st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)]) > st_distance(st_endpoint(line_start), pnts[1])
-				        then line_start
-		        else line_end
-	      end as minlocation,
+                        then line_start
+                else line_end
+          end as minlocation,
         case
-	          when count=1 then null
-		        when st_distance(st_endpoint(line_start), pnts[1]) > st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)])
-				        then line_start
-			      else line_end
-	      end as maxlocation,
-	      case
-	          when count = 1 then line_med
+              when count=1 then null
+                when st_distance(st_endpoint(line_start), pnts[1]) > st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)])
+                        then line_start
+                  else line_end
+          end as maxlocation,
+          case
+              when count = 1 then line_med
             else null
-	      end as medlocation,
+          end as medlocation,
         case
-	          when count=1 then null
+              when count=1 then null
             when st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)]) > st_distance(st_endpoint(line_start), pnts[1])
-				        then 'line_start'
-		        else 'line_end'
-	      end as minsource,
+                        then 'line_start'
+                else 'line_end'
+          end as minsource,
         case
-	          when count=1 then null
-		        when st_distance(st_endpoint(line_start), pnts[1]) > st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)])
-				        then 'line_start'
-			      else 'line_end'
-	      end as maxsource,
-	      case
-	          when count = 1 then 'line_med'
+              when count=1 then null
+                when st_distance(st_endpoint(line_start), pnts[1]) > st_distance(st_endpoint(line_start), pnts[array_upper(pnts,1)])
+                        then 'line_start'
+                  else 'line_end'
+          end as maxsource,
+          case
+              when count = 1 then 'line_med'
             else null
-	      end as medsource,
-	      degrees(deg[1]) as mindeg,
+          end as medsource,
+          degrees(deg[1]) as mindeg,
         degrees(deg[array_upper(deg, 1)]) as maxdeg
     from (
         select
             array_agg(deg order by tase7_nimetus)as deg, lineoid, ads_oid, side,
             min(tase7_nimetus) as minnr, max(tase7_nimetus) as maxnr,
             array_agg(pnt order by tase7_nimetus) as pnts,
-	          min(line_start)::geometry(linestring, 3301) as line_start,
-	          min(line_end)::geometry(linestring, 3301) as line_end,
-	          min(line_med)::geometry(linestring, 3301) as line_med,
-	          count(1)
+              min(line_start)::geometry(linestring, 3301) as line_start,
+              min(line_end)::geometry(linestring, 3301) as line_end,
+              min(line_med)::geometry(linestring, 3301) as line_med,
+              count(1)
         from (
             select
                 oid, line_start, line_end, line_med,
-	              deg, lineoid, lpad(tase7_nimetus, 5, '0') as tase7_nimetus, ads_oid,
-	              case
-              	    when side between 0.0 and pi() then 'R'
-              	    when side between -1*pi() and 0.0 then 'L'
-              	    when side > pi() then 'L'
-		                else 'R'
+                  deg, lineoid, lpad(tase7_nimetus, 5, '0') as tase7_nimetus, ads_oid,
+                  case
+                      when side between 0.0 and pi() then 'R'
+                      when side between -1*pi() and 0.0 then 'L'
+                      when side > pi() then 'L'
+                        else 'R'
                 end as side, geom, pnt,
-	              degrees(side) as rad, vec, seg
+                  degrees(side) as rad, vec, seg
             from (
                 select
                     tase7_nimetus, ads_oid,
@@ -467,20 +471,20 @@ from (
                         st_azimuth(st_startpoint(h.seg), st_endpoint(h.seg))
                     ) as side,
                     st_azimuth(st_startpoint(h.vec), st_endpoint(h.vec)) as deg,
-	                  vec as vec, seg as seg,
-	                  line as geom, pnt, lineoid,
-	                  oid, line_start, line_end, line_med
+                      vec as vec, seg as seg,
+                      line as geom, pnt, lineoid,
+                      oid, line_start, line_end, line_med
                 from (
                     select
-	                      cp.oid, line_start, line_end, line_med,
+                          cp.oid, line_start, line_end, line_med,
                         st_makeLine(cp.p, pnt) vec,
-		                    case
-			                      when st_linelocatepoint(line, cp.p) < 0.95
-         	                      then st_makeline(cp.p, st_lineinterpolatepoint(line, st_linelocatepoint(line, cp.p) * 1.01))
-	                          else
-	                              st_makeline(st_lineinterpolatepoint(line,0.95), cp.p)
+                            case
+                                  when st_linelocatepoint(line, cp.p) < 0.95
+                                   then st_makeline(cp.p, st_lineinterpolatepoint(line, st_linelocatepoint(line, cp.p) * 1.01))
+                              else
+                                  st_makeline(st_lineinterpolatepoint(line,0.95), cp.p)
                         end as seg,
-		                    tase7_nimetus, ads_oid, line, pnt, lineoid
+                            tase7_nimetus, ads_oid, line, pnt, lineoid
                     from
                         vectiles_input.streetlinemerge_cp cp
                 ) h
@@ -536,3 +540,4 @@ from vectiles_input.adrsegs
 where
     med_geom is not null
 ;
+*/

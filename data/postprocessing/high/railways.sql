@@ -4,7 +4,7 @@ truncate table vectiles.railways restart identity;
 /* insert e_502_roobastee_j */
 
 -- splits of rail on top of bridges
-with bridges as (select * from vectiles.bridges_for_rails where for_rail = true)
+with bridges as (select * from vectiles_input.bridges_for_rails where for_rail = true)
 insert into vectiles.railways (
     geom, originalid, name, type, subtype, class, bridge
 )

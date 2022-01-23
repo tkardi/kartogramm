@@ -71,7 +71,7 @@ from (
 ;
 
 -- z_level porno with bridges (roads that have z-level set to 0 but they still pass a bridge, wut gives?)
-with bridges as (select b4r.*, st_buffer(geom, 0.1) as buff_geom from vectiles.bridges_for_roads b4r where b4r.for_road = true)
+with bridges as (select b4r.*, st_buffer(geom, 0.1) as buff_geom from vectiles_input.bridges_for_roads b4r where b4r.for_road = true)
 insert into vectiles.roads (
     geom, originalid, name, road_number, type, class, relative_height, oneway, bridge
 )

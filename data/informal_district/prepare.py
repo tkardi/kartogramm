@@ -11,7 +11,7 @@ def prepare(**kwargs):
         with connection.cursor() as cursor:
             cursor.execute('truncate table vectiles_input.informal_district restart identity')
     tartu.prepare(**kwargs)
-    tallinn.prepare(**kwargs)
+#    tallinn.prepare(**kwargs)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
