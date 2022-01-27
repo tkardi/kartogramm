@@ -1,13 +1,483 @@
 /* ROADS */
 
-truncate table vectiles.roads restart identity;
+/* build "bridges_for_roads" */
+drop table if exists vectiles_input.bridges;
+create table vectiles_input.bridges as
+select
+    v.etak_ids as water_etak_ids, r.etak_ids as rail_etak_ids,
+    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom
+from
+    vectiles_input.e_505_liikluskorralduslik_rajatis_ka ka
+        left join lateral (
+            select array_agg(etak_id) as etak_ids
+            from (
+                select
+                    j.etak_id as etak_id
+                from vectiles_input.e_203_vooluveekogu_j j
+                where st_intersects(ka.geom, j.geom)
+                union all
+                select
+                    a.etak_id as etak_id
+                from vectiles_input.e_202_seisuveekogu_a a
+                where st_intersects(ka.geom, a.geom)
+            ) f
+        ) v on true
+    left join lateral(
+        select array_agg(etak_id) etak_ids
+        from vectiles_input.e_502_roobastee_j j
+        where st_intersects(ka.geom, j.geom)
+    ) r on true
+where ka.tyyp = 30
+order by ka.gid
+;
 
+create index sidx__bridges on vectiles_input.bridges using gist (geom);
+create index idx__bridges__water_etak_ids on vectiles_input.bridges using gin (water_etak_ids);
+alter table vectiles_input.bridges add constraint pk__bridges primary key (etak_id);
+
+/* fixing some z-levels beforehand, derive pseudo z-levels from z coordinates. */
+/* although these might be broken aswell... */
+/* using these simply as backup. */
+/* ... and a later try tells us, that these are so broken that they will lead nowhere */
+/* and will cause more problems than solve currently. but will keep this calc */
+/* in here anyway... maybe sometime later.*/
+alter table vectiles_input.e_501_tee_j add column z_coord_from int;
+alter table vectiles_input.e_501_tee_j add column z_coord_to int;
+alter table vectiles_input.e_501_tee_j add column xyz_from varchar;
+alter table vectiles_input.e_501_tee_j add column xyz_to varchar;
+alter table vectiles_input.e_501_tee_j add column z_from int;
+alter table vectiles_input.e_501_tee_j add column z_to int;
+
+
+update vectiles_input.e_501_tee_j set z_coord_from = st_z(st_startpoint(geom))::int;
+update vectiles_input.e_501_tee_j set z_coord_to = st_z(st_endpoint(geom))::int;
+update vectiles_input.e_501_tee_j set xyz_from = (st_x(st_startpoint(geom))*100)::bigint::varchar||(st_y(st_startpoint(geom))*100)::bigint::varchar;
+update vectiles_input.e_501_tee_j set xyz_to = (st_x(st_endpoint(geom))*100)::bigint::varchar||(st_y(st_endpoint(geom))*100)::bigint::varchar;
+create index idx__e_501_tee_j__xyz_from on vectiles_input.e_501_tee_j (xyz_from);
+create index idx__e_501_tee_j__xyz_to on vectiles_input.e_501_tee_j (xyz_to);
+
+drop table if exists vectiles_input.tee_tmp_from_to_z_coords;
+create table vectiles_input.tee_tmp_from_to_z_coords as
+select xyz, array_agg(distinct z order by z) as z
+from (
+    select xyz_from as xyz, z_coord_from as z
+    from vectiles_input.e_501_tee_j
+    group by xyz_from, z_coord_from
+    union all
+    select xyz_to, z_coord_to
+    from vectiles_input.e_501_tee_j
+    group by xyz_to, z_coord_to
+) tots
+group by xyz
+;
+
+alter table vectiles_input.tee_tmp_from_to_z_coords add constraint pk__tee_tmp_from_to_z_coords primary key (xyz);
+
+update vectiles_input.e_501_tee_j set
+    z_from = array_position(foo.z, z_coord_from) - 1
+from vectiles_input.tee_tmp_from_to_z_coords foo
+where foo.xyz = e_501_tee_j.xyz_from
+;
+
+update vectiles_input.e_501_tee_j set
+    z_to = array_position(foo.z, z_coord_to) - 1
+from vectiles_input.tee_tmp_from_to_z_coords foo
+where foo.xyz = e_501_tee_j.xyz_to
+;
+
+
+/* ... BUT back to z_levels business */
+/* create a quasi-tmp table of all intersections and roads. */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+
+/* problem solving with a hammer: */
+/* if it's not on a bridge, and it's not a path/bikeroad (as these have a lot of bridges missing from the input) */
+/* and it's claiming to be z-level > 0 then most probably it's not! */
+update vectiles_input.e_501_tee_j set
+    a_tasand = 0
+from (
+    select
+        t.*
+    from
+        vectiles_input.tee_tmp t,
+        vectiles_input.e_501_tee_j j
+    where
+        j.gid = t.tee_gid and
+        j.tyyp_t not in ('Rada', 'Kergliiklustee') and
+        t.z > 0 and
+        not exists (
+            select 1 from vectiles_input.bridges b where st_within(t.geom, b.geom)
+        )
+    order by xyz
+) c
+where c.tee_gid = e_501_tee_j.gid and c.xyz = e_501_tee_j.xyz_from
+;
+
+update vectiles_input.e_501_tee_j set
+    l_tasand = 0
+from (
+    select
+        t.*
+    from
+        vectiles_input.tee_tmp t,
+        vectiles_input.e_501_tee_j j
+    where
+        j.gid = t.tee_gid and
+        j.tyyp_t not in ('Rada', 'Kergliiklustee') and
+        t.z > 0 and
+        not exists (
+            select 1 from vectiles_input.bridges b where st_within(t.geom, b.geom)
+        )
+    order by xyz
+) c
+where c.tee_gid = e_501_tee_j.gid and c.xyz = e_501_tee_j.xyz_to
+;
+
+
+/* DONE. recreate temp */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+
+/* hammer continues... */
+/* xyz has two roads associated but only one xyz per z */
+/* if there's a bridge present lift everything on this xyz to z=1 otherwise 0 */
+update vectiles_input.e_501_tee_j set
+    a_tasand = case when f.is_bridge is true then 1 else 0 end
+from (
+    select xyz, array_agg(z), count(1), (array_agg(st_within(f.geom, b.geom)))[1] as is_bridge
+    from (
+        select xyz, z, count(1), min(geom)::geometry(pointzm, 3301) as geom
+        from vectiles_input.tee_tmp
+        group by xyz, z
+        having count(1) = 1
+        order by z
+    ) f
+    left join vectiles_input.bridges b on st_within(f.geom, b.geom)
+    group by xyz
+    having count(1) = 2
+    order by 2
+) f
+where f.xyz = e_501_tee_j.xyz_from
+;
+
+update vectiles_input.e_501_tee_j set
+    l_tasand = case when f.is_bridge is true then 1 else 0 end
+from (
+    select xyz, array_agg(z), count(1), (array_agg(st_within(f.geom, b.geom)))[1] as is_bridge
+    from (
+        select xyz, z, count(1), min(geom)::geometry(pointzm, 3301) as geom
+        from vectiles_input.tee_tmp
+        group by xyz, z
+        having count(1) = 1
+        order by z
+    ) f
+    left join vectiles_input.bridges b on st_within(f.geom, b.geom)
+    group by xyz
+    having count(1) = 2
+    order by 2
+) f
+where f.xyz = e_501_tee_j.xyz_to
+;
+
+
+/*  recreate temp */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+
+
+/* ASSUMPTIONS: */
+/* 1) a road segment with a natinal identifier should essentially pass a xyz intersection only once in the same z-level */
+/* except for those rare occasions when it doesn't. like a link road starting from under the bridge and finishing on top... */
+drop table if exists vectiles_input.tee_tmp_new_z;
+create table vectiles_input.tee_tmp_new_z as
+select
+    y.xyz, y.tee, y.zs, y.count, y.tee_gids,
+    y.count_per_z,
+    y.current_z,
+    t.count as tee_count,
+    t.ts,
+    coalesce(
+        case
+            -- intersects a bridge (on top or under), count of roads == 2 and intersects any of water of waterlines then use higher available
+            when b.gid is not null and t.count = 2 and (vvk.etak_ids is not null or rail_and_bridge.etak_ids is not null) then y.zs[2]
+            -- intersects a bridge (on top or under), count of roads > 2 then manage it somehow later on but mark it differently
+            when b.gid is not null and t.count > 2 and (vvk.etak_ids is not null or rail_and_bridge.etak_ids is not null) then -2
+            -- intersects a bridge (on top or under) and count of roads == 2, but no waterline or railroad (ecoducts!!! or not... ??? not all of them at least)
+            when b.gid is not null and t.count= 2 and (vvk.etak_ids is null and rail_and_bridge.etak_ids is null) then 0
+            -- all as before, but number of intersecting roads is > 2
+            when b.gid is not null and t.count > 2 and (vvk.etak_ids is null and rail_and_bridge.etak_ids is null) then -3
+            -- everything else, pass on
+            when b.gid is null and vvk.etak_ids is not null then null
+            when b.gid is null and vvk.etak_ids is null then null
+        end,
+        case
+            -- this way crosses railroads, so opt for the smaller (there was no bridge here!)
+            when y.zs[1] < 0 and rail.etak_ids is not null then y.zs[1]
+            -- there's no rail, take a chance, go for bigger one as the original was -1
+            when y.zs[1] < 0 and rail.etak_ids is null then y.zs[2]
+            else y.zs[1]
+        end
+    ) as new_z,
+    case when b.gid is null then false else true end as xyz_on_bridge,
+    case when vvk.etak_ids is null then false else true end as road_crosses_a_river,
+    case when rail_and_bridge.etak_ids is null then false else true end as road_crosses_a_railway,
+    b.gid as bridge_gid,
+    b.water_etak_ids,
+    rail_and_bridge.etak_ids as rail_etak_ids,
+    l.roads_per_z as roads_per_lower_z,
+    h.roads_per_z as roads_per_higher_z,
+    t.geom as road_geom,
+    y.geom as xyz_geom
+from (
+    select
+        xyz, tee, array_agg(distinct z) as zs, count(1),
+        array_agg(z order by g) as current_z,
+        min(geom)::geometry(pointzm, 3301) as geom,
+        array_agg(g order by g) as tee_gids,
+        array_agg(d.c order by g) as count_per_z
+    from (
+        select xyz, tee, z, geom, array_agg(tee_gid) as tee_gids
+        from vectiles_input.tee_tmp
+        where tee is not null
+        --and xyz='55581547657178164'
+        group by xyz, tee, z, geom
+    ) x
+        join lateral unnest(tee_gids) g on true
+        join lateral (
+            select count(1) c
+            from vectiles_input.tee_tmp t
+            where t.xyz=x.xyz and t.tee=x.tee and t.z = x.z ) d on true
+    group by xyz, tee
+    having array_upper(array_agg(distinct z), 1)>1
+) y
+    left join
+        vectiles_input.bridges b on st_within(y.geom, b.geom)
+    left join lateral (
+        select st_union(t.geom) as geom, count(1), array_agg(distinct tee) as ts
+        from vectiles_input.e_501_tee_j t
+        where t.gid = any(y.tee_gids)) t on true
+    left join lateral (
+        select array_agg(etak_id) as etak_ids
+        from vectiles_input.e_203_vooluveekogu_j j
+        where j.etak_id = any(b.water_etak_ids) and st_intersects(j.geom, t.geom)) vvk on true
+    left join lateral (
+        select array_agg(etak_id) as etak_ids
+        from vectiles_input.e_502_roobastee_j r
+        where r.etak_id = any(b.rail_etak_ids) and st_intersects(r.geom, t.geom)) rail_and_bridge on true
+    left join lateral (
+        select array_agg(etak_id) as etak_ids
+        from vectiles_input.e_502_roobastee_j r
+        where st_intersects(r.geom, t.geom)) rail on true
+    left join lateral (
+        select count(1) as roads_per_z
+        from vectiles_input.tee_tmp low
+        where low.xyz = y.xyz and low.z = y.zs[1] and coalesce(low.tee,-1) != y.tee) l on true
+    left join lateral (
+        select count(1) as roads_per_z
+        from vectiles_input.tee_tmp high
+        where high.xyz = y.xyz and high.z = y.zs[2] and coalesce(high.tee,-1) != y.tee) h on true
+where
+    /* assuming road identifiers 'tee' are not messed up */
+    /* if a road segments finishes at xyz and exits it at a z, everything is fine */
+    2 != any(y.count_per_z)
+order by xyz
+;
+
+create index idx__tee_tmp_new_z__xyz on vectiles_input.tee_tmp_new_z (xyz);
+create index idx__tee_tmp_new_z__tee_gids on vectiles_input.tee_tmp_new_z using gin (tee_gids);
+
+update vectiles_input.e_501_tee_j set
+    a_tasand = f.new_z
+from
+    tee_tmp_new_z f
+where
+    f.xyz = e_501_tee_j.xyz_from and
+    e_501_tee_j.gid = any(f.tee_gids) and
+    f.new_z > -2
+;
+
+update vectiles_input.e_501_tee_j set
+    l_tasand = f.new_z
+from
+    tee_tmp_new_z f
+where
+    f.xyz = e_501_tee_j.xyz_to and
+    e_501_tee_j.gid = any(f.tee_gids) and
+    f.new_z > -2
+;
+
+
+/* recreat temp */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+
+
+/* comparing NULL road identifiers makes no sense */
+/* instead let's calculate the turn angle between roads intersecting at */
+/* xyz and assume that the "straightest" pairs are on the same z-level. */
+drop table if exists vectiles_input.tee_tmp_new_z;
+create table vectiles_input.tee_tmp_new_z as
+select
+    fix.*
+from (
+    select
+        xyz, array_agg(distinct z) as zs, count(1),
+        array_agg(z order by g) as current_z,
+        min(geom)::geometry(pointzm, 3301) as geom,
+        array_agg(g order by g) as tee_gids,
+        array_agg(d.c order by g) as count_per_z
+    from (
+        select xyz, z, min(geom)::geometry(pointzm, 3301) as geom, array_agg(tee_gid) as tee_gids
+        from vectiles_input.tee_tmp
+        group by xyz, z
+    ) x
+        join lateral unnest(tee_gids) g on true
+        join lateral (
+            select count(1) c
+            from vectiles_input.tee_tmp t
+            where t.xyz=x.xyz /*and coalesce(t.tee,-1) = coalesce(x.tee,-1)*/ and t.z = x.z ) d on true
+    group by xyz
+    having array_upper(array_agg(distinct z), 1)>1
+) y
+    left join
+        vectiles_input.bridges b on st_within(y.geom, b.geom)
+    left join lateral (
+        select st_union(t.geom) as geom, count(1), array_agg(distinct tee) as ts
+        from vectiles_input.e_501_tee_j t
+        where t.gid = any(y.tee_gids)) t on true
+    left join lateral (
+        select array_agg(etak_id) as etak_ids
+        from vectiles_input.e_203_vooluveekogu_j j
+        where j.etak_id = any(b.water_etak_ids) and st_intersects(j.geom, t.geom)) vvk on true
+    left join lateral (
+        select array_agg(etak_id) as etak_ids
+        from vectiles_input.e_502_roobastee_j r
+        where r.etak_id = any(b.rail_etak_ids) and st_intersects(r.geom, t.geom)) rail_and_bridge on true
+    left join lateral (
+        select array_agg(etak_id) as etak_ids
+        from vectiles_input.e_502_roobastee_j r
+        where st_intersects(r.geom, t.geom)) rail on true
+    join lateral vectiles_input.azimuth_based_z_level_fix(y.xyz, y.tee_gids) fix on true
+where
+    /* if a road segments finishes at xyz and exits it at a z, everything is fine */
+    2 != any(y.count_per_z)
+order by xyz
+;
+
+create index idx__tee_tmp_new_z__xyz on vectiles_input.tee_tmp_new_z (xyz);
+create index idx__tee_tmp_new_z__tee_gids on vectiles_input.tee_tmp_new_z using gin (tee_gids);
+
+update vectiles_input.e_501_tee_j set
+    a_tasand = f.new_z
+from
+    vectiles_input.tee_tmp_new_zf
+where
+    f.xyz = e_501_tee_j.xyz_from and
+    e_501_tee_j.gid = any(f.tee_gids) and
+    f.new_z > -2
+;
+
+update vectiles_input.e_501_tee_j set
+    l_tasand = f.new_z
+from
+    vectiles_input.tee_tmp_new_z f
+where
+    f.xyz = e_501_tee_j.xyz_to and
+    e_501_tee_j.gid = any(f.tee_gids) and
+    f.new_z > -2
+;
+
+
+/* and recreate temp... */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+
+
+/* DATA PREPARTION */
+
+truncate table vectiles.roads restart identity;
 /* insert e_501_tee_j */
 
 -- roads that have (possibly) correct z-level > 0 at either end and the end is on a bridge
-with bridges as (select * from vectiles_input.e_505_liikluskorralduslik_rajatis_ka where tyyp = 30)
 insert into vectiles.roads (
-    geom, originalid, name, road_number, type, class, relative_height, oneway, bridge
+    geom, originalid, name, road_number,
+    type, class, relative_height, oneway, bridge
 )
 select
     case
@@ -62,8 +532,14 @@ from (
             split as geom
         from (
             select s.gid, s.a_tasand, s.l_tasand , (st_dump(st_split(s.geom, st_boundary(b.geom)))).geom as split, b.geom as bridge
-            from vectiles_input.e_501_tee_j s, bridges b
-            where ((a_tasand = 0 and l_tasand > a_tasand) or (l_tasand = 0 and a_tasand > l_tasand)) and st_intersects(b.geom, s.geom)
+            from vectiles_input.e_501_tee_j s, vectiles_input.bridges  b
+            where (
+                ----(a_tasand = 0 and l_tasand > a_tasand and st_within(st_endpoint(s.geom), b.geom)) or
+                (a_tasand > 0 and l_tasand != a_tasand and st_within(st_startpoint(s.geom), b.geom)) or
+                ----(l_tasand = 0 and a_tasand > l_tasand and st_within(st_startpoint(s.geom), b.geom))
+                (l_tasand > 0 and a_tasand != l_tasand and st_within(st_endpoint(s.geom), b.geom))
+            ) and
+                st_intersects(b.geom, s.geom) --and s.etak_id = 8163331
         ) foo
     ) bar
     where s.gid = bar.gid
@@ -71,7 +547,7 @@ from (
 ;
 
 -- z_level porno with bridges (roads that have z-level set to 0 but they still pass a bridge, wut gives?)
-with bridges as (select b4r.*, st_buffer(geom, 0.1) as buff_geom from vectiles_input.bridges_for_roads b4r where b4r.for_road = true)
+--with bridges as (select b4r.*, st_buffer(geom, 0.1) as buff_geom from vectiles_input.bridges_for_roads b4r where b4r.for_road = true)
 insert into vectiles.roads (
     geom, originalid, name, road_number, type, class, relative_height, oneway, bridge
 )
@@ -129,19 +605,19 @@ from (
         from (
             select s.gid, s.a_tasand, s.l_tasand , (st_dump(st_split(s.geom, b.geom))).geom as split, b.bridge as bridge
             from vectiles_input.e_501_tee_j s, (
-    		    select s.gid as street_gid, st_union(st_boundary(b.buff_geom)) as geom, st_union(b.buff_geom) as bridge
-    			from bridges b, vectiles_input.e_501_tee_j s
-    			where st_intersects(b.geom, s.geom)
-    			group by s.gid
-	        )  b
+                select s.gid as street_gid, st_union(st_boundary(b.buff_geom)) as geom, st_union(b.buff_geom) as bridge
+                from (select *, st_buffer(geom, 0.1) as buff_geom from vectiles_input.bridges) b, vectiles_input.e_501_tee_j s
+                where st_intersects(b.geom, s.geom)
+                group by s.gid
+            )  b
         where
             b.street_gid = s.gid and
             (
-	            (st_within(st_startpoint(s.geom), b.bridge) and s.a_tasand=0) or
-                (st_within(st_endpoint(s.geom), b.bridge) and s.l_tasand=0) or
-                (st_intersects(s.geom, b.bridge) and s.a_tasand=0 and s.l_tasand=0)
+                (st_within(st_startpoint(s.geom), b.bridge) /* and s.a_tasand=0*/ and exists (select 1 from vectiles_input.tee_tmp tmp where tmp.xyz = s.xyz_from and tmp.z < s.a_tasand)) or
+                (st_within(st_endpoint(s.geom), b.bridge) /* and s.l_tasand=0*/ and exists (select 1 from vectiles_input.tee_tmp tmp where tmp.xyz = s.xyz_to and tmp.z < s.l_tasand)) /* or
+                (st_intersects(s.geom, b.bridge) and s.a_tasand=0 and s.l_tasand=0)*/
             ) and
-                not exists (select f.* from vectiles.roads f where f.originalid::int = s.etak_id)
+                not exists (select 1 from vectiles.roads f where f.originalid::int = s.etak_id)
         ) foo
     ) bar
     where s.gid = bar.gid
@@ -208,7 +684,10 @@ from (
         from (
             select s.gid, s.a_tasand, s.l_tasand , (st_dump(st_split(s.geom, st_boundary(b.geom)))).geom as split, b.geom as tunnel
             from vectiles_input.e_501_tee_j s, tunnels b
-            where ((a_tasand < 0 and l_tasand > a_tasand) or (l_tasand < 0 and a_tasand > l_tasand)) and st_intersects(b.geom, s.geom)
+            where (
+                (a_tasand < 0 and l_tasand > a_tasand and st_within(st_startpoint(s.geom), b.geom)) or
+                (l_tasand < 0 and a_tasand > l_tasand and st_within(st_endpoint(s.geom), b.geom))
+            ) and st_intersects(b.geom, s.geom)
         ) foo
     ) bar
     where s.gid = bar.gid
@@ -277,7 +756,7 @@ from (
             select
                 s.gid, s.a_tasand, s.l_tasand ,
                 case when a.a = 0 then a_tasand else l_tasand end as z,
-                st_linesubstring(s.geom, a.a, a.a + 0.5) as geom
+                st_linesubstring(s.geom, a.a, a.a + 0.5) as geom /* doubt this! */
             from (
                 select * from vectiles_input.e_501_tee_j
                 where
@@ -355,19 +834,19 @@ from (
         from (
             select
                 s.gid, s.a_tasand, s.l_tasand ,
-                case when a.a = 0 then a_tasand else l_tasand end as z,
-                st_linesubstring(s.geom, a.a, a.a + 0.5) as geom
+                a_tasand as z,
+                s.geom as geom
             from (
                 select *
                 from vectiles_input.e_501_tee_j
                 where
-                    a_tasand != l_tasand and
+                    a_tasand = l_tasand and
                     not exists (
                         select f.*
                         from vectiles.roads f
                         where f.originalid::int = e_501_tee_j.etak_id
                     )
-                )s, (select unnest(array[0,0.5]) as a) a
+                )s
             order by gid
         ) foo
     ) bar

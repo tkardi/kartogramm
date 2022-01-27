@@ -309,3 +309,84 @@ create index sidx__lv_railways
     on vectiles_input.lv_railways
         using gist(geom)
 ;
+
+create or replace function vectiles_input.azimuth_based_z_level_fix(xyz varchar, tee_gids int[])
+returns table (xyz text, tee_gids int[], tee_zs int[], new_z int) as
+$$
+with
+    data as (
+        select
+            st_force2d(
+                case
+                    when xyz_from=$1 then st_linesubstring(geom, 0, 1/st_length(geom))
+                    else st_linesubstring(geom, 1-(1/st_length(geom)), 1)
+                end
+            ) as geom,
+            $1 as inter,
+            xyz_from,
+            xyz_to, tee, gid
+        from vectiles_input.e_501_tee_j
+        where
+            gid = any($2)
+    )
+select
+    inter, tee_gids,
+    tee_zs,
+    case
+        when lag(tee_zs) over (order by rn) is null and tee_zs[1]=-1 then -1
+        when lag(tee_zs) over (order by rn) is null then 0
+        else 1
+    end as new_z
+from (
+    select
+        row_number() over(order by z.z) as rn,
+        inter,
+        g.g as tee_gids,
+        z.z as tee_zs
+    from (
+        select
+            row_number() over (
+                partition by my.my_gid order by abs(
+                    st_azimuth(st_startpoint(my.my_geom), st_endpoint(my.my_geom))-
+                        st_azimuth(st_startpoint(other.geom), st_endpoint(other.geom))
+                )
+            ) rn,
+            tmp.z as my_z,
+            o.z as other_z,
+            my.*,
+            other.geom as other_geom, other.gid as other_gid, other.tee as other_tee,
+            st_azimuth(st_startpoint(my.my_geom), st_endpoint(my.my_geom)) as my_azimuth,
+            st_azimuth(st_startpoint(other.geom), st_endpoint(other.geom)) as other_azimuth
+        from (
+            select
+                my.inter,
+                my.tee as my_tee, my.gid as my_gid,
+                case
+                    when my.inter = my.xyz_to then my.geom
+                    else st_reverse(my.geom)
+                end as my_geom
+            from
+                data my
+        ) my
+            join lateral (
+                select
+                    gid, tee,
+                    case
+                        when data.inter = data.xyz_from then data.geom
+                        else st_reverse(data.geom)
+                    end as geom
+                from data
+                where my.my_gid != data.gid and my.inter = data.inter
+            ) other on true
+            left join vectiles_input.tee_tmp tmp on tmp.xyz = my.inter and tmp.tee_gid = my.my_gid
+            left join vectiles_input.tee_tmp o on o.xyz = my.inter and o.tee_gid = other.gid
+        ) f
+        join lateral (select array_agg(g order by g) as g from unnest(array[my_gid, other_gid]) g) g on true
+        join lateral (select array_agg(z order by z) as z from unnest(array[my_z, other_z]) z) z on true
+    where rn = 1
+    group by inter, tee_gids, tee_zs
+) n
+;
+$$
+language sql
+parallel restricted;
