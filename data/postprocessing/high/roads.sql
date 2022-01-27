@@ -5,34 +5,44 @@ drop table if exists vectiles_input.bridges;
 create table vectiles_input.bridges as
 select
     v.etak_ids as water_etak_ids, r.etak_ids as rail_etak_ids,
-    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom
+    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom,
+    v.geom as water_geoms, r.geom as rail_geoms
 from
     vectiles_input.e_505_liikluskorralduslik_rajatis_ka ka
         left join lateral (
-            select array_agg(etak_id) as etak_ids
+            select array_agg(etak_id) as etak_ids, st_union(geom) as geom
             from (
                 select
-                    j.etak_id as etak_id
+                    j.etak_id as etak_id, st_intersection(ka.geom, j.geom) as geom
                 from vectiles_input.e_203_vooluveekogu_j j
                 where st_intersects(ka.geom, j.geom)
                 union all
                 select
-                    a.etak_id as etak_id
-                from vectiles_input.e_202_seisuveekogu_a a
-                where st_intersects(ka.geom, a.geom)
+                    etak_id, st_boundary(geom) as geom
+                from (
+                    select
+                        a.etak_id as etak_id, (st_dump(st_intersection(ka.geom, a.geom))).geom as geom
+                    from vectiles_input.e_202_seisuveekogu_a a
+                    where st_intersects(ka.geom, a.geom)
+                ) b
             ) f
         ) v on true
     left join lateral(
-        select array_agg(etak_id) etak_ids
+        select array_agg(etak_id) etak_ids, st_union(st_intersection(ka.geom, j.geom)) as geom
         from vectiles_input.e_502_roobastee_j j
         where st_intersects(ka.geom, j.geom)
     ) r on true
-where ka.tyyp = 30
-order by ka.gid
+where
+    ka.tyyp = 30
+order by
+    ka.gid
 ;
 
 create index sidx__bridges on vectiles_input.bridges using gist (geom);
+create index sidx__bridges__water_geoms on vectiles_input.bridges using gist (water_geoms);
+create index sidx__bridges__rail_geoms on vectiles_input.bridges using gist (rail_geoms);
 create index idx__bridges__water_etak_ids on vectiles_input.bridges using gin (water_etak_ids);
+create index idx__bridges__rail_etak_ids on vectiles_input.bridges using gin (rail_etak_ids);
 alter table vectiles_input.bridges add constraint pk__bridges primary key (etak_id);
 
 /* fixing some z-levels beforehand, derive pseudo z-levels from z coordinates. */
@@ -109,45 +119,53 @@ create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
 /* problem solving with a hammer: */
 /* if it's not on a bridge, and it's not a path/bikeroad (as these have a lot of bridges missing from the input) */
 /* and it's claiming to be z-level > 0 then most probably it's not! */
+drop table if exists vectiles_input.tee_tmp_new_z;
+create table vectiles_input.tee_tmp_new_z as
+select
+    t.*
+from
+    vectiles_input.tee_tmp t,
+    vectiles_input.e_501_tee_j j
+where
+    j.gid = t.tee_gid and
+    j.tyyp_t not in ('Rada', 'Kergliiklustee') and
+    t.z > 0 and
+    not exists (
+        select 1 from vectiles_input.bridges b where st_within(t.geom, b.geom)
+    )
+order by xyz
+;
+
+create index idx__tee_tmp_new_z__xyz on vectiles_input.tee_tmp_new_z (xyz);
+create index idx__tee_tmp_new_z__tee_gid on vectiles_input.tee_tmp_new_z (tee_gid);
+
 update vectiles_input.e_501_tee_j set
     a_tasand = 0
-from (
-    select
-        t.*
-    from
-        vectiles_input.tee_tmp t,
-        vectiles_input.e_501_tee_j j
-    where
-        j.gid = t.tee_gid and
-        j.tyyp_t not in ('Rada', 'Kergliiklustee') and
-        t.z > 0 and
-        not exists (
-            select 1 from vectiles_input.bridges b where st_within(t.geom, b.geom)
-        )
-    order by xyz
-) c
-where c.tee_gid = e_501_tee_j.gid and c.xyz = e_501_tee_j.xyz_from
+from vectiles_input.tee_tmp_new_z c
+where
+    c.tee_gid = e_501_tee_j.gid and
+    c.xyz = e_501_tee_j.xyz_from
 ;
 
 update vectiles_input.e_501_tee_j set
     l_tasand = 0
+from vectiles_input.tee_tmp_new_z c
+where
+    c.tee_gid = e_501_tee_j.gid and
+    c.xyz = e_501_tee_j.xyz_to
+;
+
+select *
 from (
     select
-        t.*
+        xyz, count(1), array_agg(distinct z) zs, min(geom)::geometry(pointzm, 3301) as geom
     from
-        vectiles_input.tee_tmp t,
-        vectiles_input.e_501_tee_j j
-    where
-        j.gid = t.tee_gid and
-        j.tyyp_t not in ('Rada', 'Kergliiklustee') and
-        t.z > 0 and
-        not exists (
-            select 1 from vectiles_input.bridges b where st_within(t.geom, b.geom)
-        )
-    order by xyz
-) c
-where c.tee_gid = e_501_tee_j.gid and c.xyz = e_501_tee_j.xyz_to
-;
+        vectiles_input.tee_tmp tmp
+    group by xyz
+) d, vectiles_input.bridges b
+where
+    0 = all(d.zs) and
+    st_within(d.geom, b.geom) and b.water_geoms is not null
 
 
 /* DONE. recreate temp */
@@ -172,41 +190,33 @@ create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
 /* hammer continues... */
 /* xyz has two roads associated but only one xyz per z */
 /* if there's a bridge present lift everything on this xyz to z=1 otherwise 0 */
+drop table if exists vectiles_input.tee_tmp_new_z;
+create table vectiles_input.tee_tmp_new_z as
+select xyz, array_agg(z), count(1), (array_agg(st_within(f.geom, b.geom)))[1] as is_bridge
+from (
+    select xyz, z, count(1), min(geom)::geometry(pointzm, 3301) as geom
+    from vectiles_input.tee_tmp
+    group by xyz, z
+    having count(1) = 1
+    order by z
+) f
+    left join vectiles_input.bridges b on st_within(f.geom, b.geom)
+group by xyz
+having count(1) = 2
+order by 2
+;
+
+create index idx__tee_tmp_new_z__xyz on vectiles_input.tee_tmp_new_z (xyz);
+
 update vectiles_input.e_501_tee_j set
     a_tasand = case when f.is_bridge is true then 1 else 0 end
-from (
-    select xyz, array_agg(z), count(1), (array_agg(st_within(f.geom, b.geom)))[1] as is_bridge
-    from (
-        select xyz, z, count(1), min(geom)::geometry(pointzm, 3301) as geom
-        from vectiles_input.tee_tmp
-        group by xyz, z
-        having count(1) = 1
-        order by z
-    ) f
-    left join vectiles_input.bridges b on st_within(f.geom, b.geom)
-    group by xyz
-    having count(1) = 2
-    order by 2
-) f
+from vectiles_input.tee_tmp_new_z f
 where f.xyz = e_501_tee_j.xyz_from
 ;
 
 update vectiles_input.e_501_tee_j set
     l_tasand = case when f.is_bridge is true then 1 else 0 end
-from (
-    select xyz, array_agg(z), count(1), (array_agg(st_within(f.geom, b.geom)))[1] as is_bridge
-    from (
-        select xyz, z, count(1), min(geom)::geometry(pointzm, 3301) as geom
-        from vectiles_input.tee_tmp
-        group by xyz, z
-        having count(1) = 1
-        order by z
-    ) f
-    left join vectiles_input.bridges b on st_within(f.geom, b.geom)
-    group by xyz
-    having count(1) = 2
-    order by 2
-) f
+from vectiles_input.tee_tmp_new_z f
 where f.xyz = e_501_tee_j.xyz_to
 ;
 
@@ -935,6 +945,9 @@ from (
 where roads.originalid = f.etak_id::varchar
 ;
 
+select st_linemerge(st_collect(geom))
+from vectiles.roads
+
 /* insert e_503_siht_j */
 
 insert into vectiles.roads (
@@ -946,4 +959,54 @@ select
     'path'::vectiles.type_roads as type, 'dirt'::vectiles.class_roads as class,
     0 as relative_height
 from vectiles_input.e_503_siht_j
+;
+
+drop table if exists vectiles_input.roads_fix_bridges;
+create table vectiles_input.roads_fix_bridges as
+select
+    r.oid,
+    r.originalid,
+    r.name,
+    r.type,
+    r.class,
+    r.tunnel,
+    case
+        when st_within(split, st_buffer(c.bridge,0.5)) then true
+        else r.bridge
+    end as bridge,
+    r.oneway,
+    r.road_number,
+    case
+        when st_within(split, st_buffer(c.bridge,0.5)) then 1
+        else r.relative_height
+    end as relative_height,
+    split as geom
+from 
+(
+    select
+        r.oid, r.relative_height,
+        (st_dump(st_split(r.geom, st_boundary(b.geom)))).geom as split, b.geom as bridge
+    from vectiles.roads r
+        join lateral (
+            select *
+            from
+                vectiles_input.bridges b
+            where
+                st_intersects(b.geom, r.geom) and
+                st_intersects(b.water_geoms, vectiles_input.st_extend(r.geom, 10, 0))
+        ) b on true
+    where r.relative_height = 0 and oid = 589515
+) c
+    left join vectiles.roads r on r.oid = c.oid
+;
+
+delete from vectiles.roads
+where exists (select 1 from vectiles_input.roads_fix_bridges rfb where rfb.oid = roads.oid);
+
+insert into vectiles.roads(
+    geom, originalid, name, type, class, tunnel, bridge, oneway, road_number, relative_height
+)
+select
+    geom, originalid, name, type, class, tunnel, bridge, oneway, road_number, relative_height
+from vectiles_input.roads_fix_bridges
 ;
