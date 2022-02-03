@@ -762,6 +762,182 @@ from (
 where f.xyz = tee_tmp.xyz and f.z = tee_tmp.z
 ;
 
+
+/* an intersection at z=-1 and z=0 and nothing on z=1 */
+/* and it intersects A BRIDGE */
+/* +1 to z-levels at current z=0 */
+update vectiles_input.e_501_tee_j set
+    a_tasand = 1
+from (
+    select t.xyz, t.z, tee_gid, total_per_z, count(1) filter(where z=1) over (partition by xyz) as z1_count, t.geom
+    from vectiles_input.tee_tmp t, vectiles_input.bridges b
+    where
+        st_within (t.geom, b.geom) and
+        exists (
+            select 1 from vectiles_input.tee_tmp a
+            where a.xyz = t.xyz and a.z = -1
+        )
+) b
+where
+    b.z1_count = 0 and
+    b.z = 0 and
+    e_501_tee_j.gid = b.tee_gid and
+    e_501_tee_j.xyz_from = b.xyz and
+    e_501_tee_j.a_tasand = 0;
+
+update vectiles_input.e_501_tee_j set
+    l_tasand = 1
+from (
+    select t.xyz, t.z, tee_gid, total_per_z, count(1) filter(where z=1) over (partition by xyz) as z1_count, t.geom
+    from vectiles_input.tee_tmp t, vectiles_input.bridges b
+    where
+        st_within (t.geom, b.geom) and
+        exists (
+            select 1 from vectiles_input.tee_tmp a
+            where a.xyz = t.xyz and a.z = -1
+        )
+) b
+where
+    b.z1_count = 0 and
+    b.z = 0 and
+    e_501_tee_j.gid = b.tee_gid and
+    e_501_tee_j.xyz_to = b.xyz and
+    e_501_tee_j.l_tasand = 0;
+;
+
+/* and recreate temp... */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+alter table vectiles_input.tee_tmp add column total_per_z int;
+alter table vectiles_input.tee_tmp add column total int;
+
+update vectiles_input.tee_tmp set
+    total = f.count
+from (
+    select xyz, count(1)
+    from vectiles_input.tee_tmp
+    group by xyz
+) f
+where f.xyz = tee_tmp.xyz
+;
+
+update vectiles_input.tee_tmp set
+    total_per_z = f.count
+from (
+    select xyz, z, count(1)
+    from vectiles_input.tee_tmp
+    group by xyz, z
+) f
+where f.xyz = tee_tmp.xyz and f.z = tee_tmp.z
+;
+
+/* and intersection at a bridge with four road segments at z=0 and none at z=1 */
+/* but one (and only one) of the segments has another end at z=1 */
+/* clc azimuth based pairs and assign z=1 to the one pairing */
+drop table if exists vectiles_input.tee_tmp_new_z;
+create table vectiles_input.tee_tmp_new_z as
+select * from (
+    select
+        fix.*, c.other_gid
+    from (
+        select xyz, array_agg(tee_gid) as tee_gids, (array_agg(distinct o))[1] as other_gid
+        from
+        (
+            select t.xyz, t.z, tee_gid, total_per_z, count(1) filter(where z=1) over (partition by xyz) as z1_count, t.geom, j.gid as o
+            from vectiles_input.tee_tmp t, vectiles_input.bridges b, vectiles_input.e_501_tee_j j
+            where
+                z = 0 and
+                total_per_z > 3 and
+                st_within (t.geom, b.geom) and
+                ((j.l_tasand = 1 and j.xyz_from = t.xyz ) or (j.a_tasand = 1 and j.xyz_to = t.xyz))
+        ) b
+        /* but only if we're currently z=0 and there's nothing on z=1 */
+        where b.z1_count = 0 and b.z = 0
+        group by xyz
+        /* and only if there's 1 other that's partly z=1 */
+        having array_upper(array_agg(distinct o), 1) = 1
+    ) c
+    join lateral vectiles_input.azimuth_based_z_level_fix(c.xyz, c.tee_gids) fix on true
+) d
+where
+    other_gid = any(tee_gids)
+;
+create index idx__tee_tmp_new_z__xyz on vectiles_input.tee_tmp_new_z (xyz);
+create index idx__tee_tmp_new_z__tee_gids on vectiles_input.tee_tmp_new_z using gin (tee_gids);
+
+
+update vectiles_input.e_501_tee_j set
+    l_tasand = f.new_z
+from
+    vectiles_input.tee_tmp_new_z f
+where
+    f.xyz = e_501_tee_j.xyz_to and e_501_tee_j.gid = any(f.tee_gids)
+;
+
+update vectiles_input.e_501_tee_j set
+    a_tasand = f.new_z
+from
+    vectiles_input.tee_tmp_new_z f
+where
+    f.xyz = e_501_tee_j.xyz_from and e_501_tee_j.gid = any(f.tee_gids)
+;
+
+/* and recreate temp... */
+drop table if exists vectiles_input.tee_tmp;
+create table vectiles_input.tee_tmp as
+select
+    gid as tee_gid, (array[1, st_numpoints(geom)])[i] as ord,
+    elem as z, st_numpoints(geom) as numpoints,
+    case when i = 1 then st_startpoint(geom) else st_endpoint(geom) end as geom,
+    (array[xyz_from, xyz_to])[i] as xyz,
+    tee, teeosa
+from
+    vectiles_input.e_501_tee_j
+        join lateral unnest(array[a_tasand, l_tasand]) with ordinality d(elem, i) on true
+;
+
+alter table vectiles_input.tee_tmp add column oid serial;
+alter table vectiles_input.tee_tmp add constraint pk__tee_tmp primary key (oid);
+create index sidx__tee_tmp on vectiles_input.tee_tmp using gist (geom);
+create index idx__tee_tmp__xyz on vectiles_input.tee_tmp (xyz);
+alter table vectiles_input.tee_tmp add column total_per_z int;
+alter table vectiles_input.tee_tmp add column total int;
+
+update vectiles_input.tee_tmp set
+    total = f.count
+from (
+    select xyz, count(1)
+    from vectiles_input.tee_tmp
+    group by xyz
+) f
+where f.xyz = tee_tmp.xyz
+;
+
+update vectiles_input.tee_tmp set
+    total_per_z = f.count
+from (
+    select xyz, z, count(1)
+    from vectiles_input.tee_tmp
+    group by xyz, z
+) f
+where f.xyz = tee_tmp.xyz and f.z = tee_tmp.z
+;
+
 /* DATA PREPARTION */
 
 truncate table vectiles.roads restart identity;
