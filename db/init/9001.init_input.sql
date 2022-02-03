@@ -470,4 +470,4 @@ from (
 ;
 $$
 language sql
-parallel restricted;
+parallel unsafe;
