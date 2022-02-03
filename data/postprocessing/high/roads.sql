@@ -1522,6 +1522,11 @@ select
 from vectiles_input.e_503_siht_j
 ;
 
+
+/* if a road segment at relative_height=0 intersects a bridge that intersects a */
+/* waterbody so that the road segment also intersects said waterbody sergment (within the bridges' area) */
+/* then in all probability it's a road on top of a bridge over a waterbody */
+
 drop table if exists vectiles_input.roads_fix_bridges;
 create table vectiles_input.roads_fix_bridges as
 select
@@ -1569,4 +1574,59 @@ insert into vectiles.roads(
 select
     geom, originalid, name, type, class, tunnel, bridge, oneway, road_number, relative_height
 from vectiles_input.roads_fix_bridges
+;
+
+/* if a road segment at relative_height=0 intersects a tunnel that intersects a */
+/* railway so that the road segment also intersects said railway segment (within the tunnels area) */
+/* then in all probability it's a road on within a tunnel under a railroad */
+/* (as underground rail is not present in EE) */
+
+drop table if exists vectiles_input.roads_fix_tunnels;
+create table vectiles_input.roads_fix_tunnels as
+select
+    r.oid,
+    r.originalid,
+    r.name,
+    r.type,
+    r.class,
+    case
+        when st_within(split, st_buffer(c.tunnel,0.5)) then true
+        else r.bridge
+    end as tunnel,
+    r.bridge,
+    r.oneway,
+    r.road_number,
+    case
+        when st_within(split, st_buffer(c.tunnel,0.5)) then -1
+        else r.relative_height
+    end as relative_height,
+    split as geom
+from (
+    select
+        r.oid, r.relative_height,
+        (st_dump(st_split(r.geom, b.geom))).geom as split, b.geom as tunnel
+    from vectiles.roads r
+        join lateral (
+            select st_union(b.geom) as geom
+            from
+                vectiles_input.tunnels b
+            where
+                st_intersects(b.geom, r.geom) and
+                st_intersects(b.rail_geoms, vectiles_input.st_extend(r.geom, 10, 0))
+        ) b on true
+    where r.relative_height = 0 and r.type in ('bike', 'path')
+) c
+    left join vectiles.roads r on r.oid = c.oid
+;
+
+
+delete from vectiles.roads
+where exists (select 1 from vectiles_input.roads_fix_tunnels rfb where rfb.oid = roads.oid);
+
+insert into vectiles.roads(
+    geom, originalid, name, type, class, tunnel, bridge, oneway, road_number, relative_height
+)
+select
+    geom, originalid, name, type, class, tunnel, bridge, oneway, road_number, relative_height
+from vectiles_input.roads_fix_tunnels
 ;
