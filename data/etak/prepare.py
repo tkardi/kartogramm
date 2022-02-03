@@ -28,6 +28,7 @@ FILES = [
     {'filename': 'E_502_roobastee_j', 'params': '-S -W "LATIN1"'},
     {'filename': 'E_503_siht_j', 'params': '-S -W "LATIN1"'},
     {'filename': 'E_505_liikluskorralduslik_rajatis_ka', 'params': '-S -W "LATIN1"'},
+    {'filename': 'E_505_liikluskorralduslik_rajatis_j', 'params': '-S -W "LATIN1"'},
     {'filename': 'E_301_muu_kolvik_ka', 'params': '-S -W "LATIN1"'},
     {'filename': 'E_501_tee_j', 'params': '-S -W "LATIN1"'},
 ]
