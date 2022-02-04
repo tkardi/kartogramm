@@ -5,6 +5,8 @@ import os
 from datetime import datetime
 
 TABLES = [
+    '0000.init.bridges',
+    '0000.init.tunnels',
     'waterline', 'water',
     'natural', 'agricultural',
     'builtup', 'infrastructure',
