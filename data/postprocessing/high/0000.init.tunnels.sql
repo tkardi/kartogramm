@@ -3,7 +3,7 @@ drop table if exists vectiles_input.tunnels;
 create table vectiles_input.tunnels as
 select
     v.etak_ids as water_etak_ids, r.etak_ids as rail_etak_ids,
-    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom,
+    ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom,
     st_force2d(v.geom) as water_geoms, st_force2d(r.geom) as rail_geoms
 from
     vectiles_input.e_505_liikluskorralduslik_rajatis_ka ka
@@ -38,12 +38,12 @@ order by
 
 insert into vectiles_input.tunnels(
     water_etak_ids, rail_etak_ids,
-    gid, etak_id, tyyp, tyyp_t, nimetus, geom,
+    etak_id, tyyp, tyyp_t, nimetus, geom,
     water_geoms, rail_geoms
 )
 select
     v.etak_ids as water_etak_ids, r.etak_ids as rail_etak_ids,
-    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, null as nimetus, st_force4d(g) as geom,
+    ka.etak_id, ka.tyyp, ka.tyyp_t, null as nimetus, st_force4d(g) as geom,
     st_force2d(v.geom) as water_geoms, st_force2d(r.geom) as rail_geoms
 from
     vectiles_input.e_505_liikluskorralduslik_rajatis_j ka
@@ -77,9 +77,11 @@ order by
     ka.gid
 ;
 
+alter table vectiles_input.tunnels add column gid serial not null;
+alter table vectiles_input.tunnels add constraint pk__tunnels primary key (gid);
 create index sidx__tunnels on vectiles_input.tunnels using gist (geom);
 create index sidx__tunnels__water_geoms on vectiles_input.tunnels using gist (water_geoms);
 create index sidx__tunnels__rail_geoms on vectiles_input.tunnels using gist (rail_geoms);
 create index idx__tunnels__water_etak_ids on vectiles_input.tunnels using gin (water_etak_ids);
 create index idx__tunnels__rail_etak_ids on vectiles_input.tunnels using gin (rail_etak_ids);
-alter table vectiles_input.tunnels add constraint pk__tunnels primary key (etak_id);
+create unique index uidx__tunnels__etak_id on vectiles_input.tunnels (etak_id);

@@ -3,7 +3,7 @@ drop table if exists vectiles_input.bridges;
 create table vectiles_input.bridges as
 select
     v.etak_ids as water_etak_ids, r.etak_ids as rail_etak_ids,
-    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom,
+    ka.etak_id, ka.tyyp, ka.tyyp_t, ka.nimetus, ka.geom,
     st_force2d(v.geom) as water_geoms, st_force2d(r.geom) as rail_geoms
 from
     vectiles_input.e_505_liikluskorralduslik_rajatis_ka ka
@@ -32,18 +32,16 @@ from
     ) r on true
 where
     ka.tyyp = 30
-order by
-    ka.gid
 ;
 
 insert into vectiles_input.bridges(
     water_etak_ids, rail_etak_ids,
-    gid, etak_id, tyyp, tyyp_t, nimetus, geom,
+    etak_id, tyyp, tyyp_t, nimetus, geom,
     water_geoms, rail_geoms
 )
 select
     v.etak_ids as water_etak_ids, r.etak_ids as rail_etak_ids,
-    ka.gid, ka.etak_id, ka.tyyp, ka.tyyp_t, null as nimetus, st_force4d(g) as geom,
+    ka.etak_id, ka.tyyp, ka.tyyp_t, null as nimetus, st_force4d(g) as geom,
     st_force2d(v.geom) as water_geoms, st_force2d(r.geom) as rail_geoms
 from
     vectiles_input.e_505_liikluskorralduslik_rajatis_j ka
@@ -73,13 +71,13 @@ from
     ) r on true
 where
     ka.tyyp = 40
-order by
-    ka.gid
 ;
 
+alter table vectiles_input.bridges add column gid serial not null;
+alter table vectiles_input.bridges add constraint pk__bridges primary key (gid);
 create index sidx__bridges on vectiles_input.bridges using gist (geom);
 create index sidx__bridges__water_geoms on vectiles_input.bridges using gist (water_geoms);
 create index sidx__bridges__rail_geoms on vectiles_input.bridges using gist (rail_geoms);
 create index idx__bridges__water_etak_ids on vectiles_input.bridges using gin (water_etak_ids);
 create index idx__bridges__rail_etak_ids on vectiles_input.bridges using gin (rail_etak_ids);
-alter table vectiles_input.bridges add constraint pk__bridges primary key (etak_id);
+create unique index uidx__bridges__etak_id on vectiles_input.bridges (etak_id);

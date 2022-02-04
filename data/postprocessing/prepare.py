@@ -7,6 +7,7 @@ from datetime import datetime
 TABLES = [
     '0000.init.bridges',
     '0000.init.tunnels',
+    '0010.prep.roads',
     'waterline', 'water',
     'natural', 'agricultural',
     'builtup', 'infrastructure',
