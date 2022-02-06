@@ -12,7 +12,7 @@ TABLES = [
     'waterline', 'water',
     'natural', 'agricultural',
     'builtup', 'infrastructure',
-    'railways', 'roads',
+    'roads', 'railways',
     'boundaries', 'labels'
 ]
 
