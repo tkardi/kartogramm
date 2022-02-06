@@ -51,3 +51,5 @@ update vectiles_input.rail_road_inter_calc set
 where
     coalesce(road_length,0) + coalesce(tram_length,0) < rail_length
 ;
+
+alter table vectiles_input.rail_road_inter_calc add constraint pk__rail_road_inter_calc primary key (bridge_gid);
