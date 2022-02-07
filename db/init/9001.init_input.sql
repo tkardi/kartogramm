@@ -309,3 +309,165 @@ create index sidx__lv_railways
     on vectiles_input.lv_railways
         using gist(geom)
 ;
+
+
+create or replace function vectiles_input.st_extend(
+    line geometry,
+    distance numeric,
+    direction integer DEFAULT 1
+) returns geometry
+as
+$$
+/* based on
+https://groups.google.com/g/postgis-users/c/yoD1IfcUMyI/m/lOLNbWeWwSEJ
+
+@params
+direction:
+    -1: extend start
+    0: extend both,
+    1: extend end
+*/
+declare
+    dist float;
+    max_dist float = 0;
+    n_points int;
+    pto_1 geometry;
+    pto_2 geometry;
+    first_pto geometry;
+    last_pto geometry;
+    u_1 float;
+    u_2 float;
+    norm float;
+begin
+    if  (
+            lower(geometrytype(line)) not like 'linestring' or
+            distance <= 0 or
+            st_length(line) = 0
+        ) then
+        return null;
+    end if;
+
+      if direction in (-1, 0) then
+          pto_1 := st_startpoint(line);
+          dist := distance;
+
+          /* extend for first point */
+          pto_2 := st_pointn(line,2);
+          u_1 := st_x(pto_2)-st_x(pto_1);
+          u_2 := st_y(pto_2)-st_y(pto_1);
+          norm := sqrt(u_1^2 + u_2^2);
+          first_pto := st_makepoint(st_x(pto_1)-u_1/norm*dist,st_y(pto_1)-u_2/norm*dist);
+          line := st_addpoint(line, first_pto, 0);
+       end if;
+
+    if direction in (0, 1) then
+          /* extend both or only end */
+          n_points := st_npoints(line);
+          pto_1 := st_pointn(line,n_points-1);
+          pto_2 := st_endpoint(line);
+          dist := distance;
+          u_1   := st_x(pto_2)-st_x(pto_1);
+          u_2   := st_y(pto_2)-st_y(pto_1);
+          norm  := sqrt(u_1^2 + u_2^2);
+          last_pto := st_makepoint(st_x(pto_2)+u_1/norm*dist,st_y(pto_2)+u_2/norm*dist);
+          line := st_addpoint(line, last_pto);
+    end if;
+
+  return line;
+end;
+$$
+language plpgsql
+stable parallel safe;
+;
+
+create table if not exists vectiles_input.bridges (geom geometry);
+create table if not exists vectiles_input.tee_tmp (xyz varchar, geom geometry, tee_gid int, z int);
+create table if not exists vectiles_input.e_501_tee_j (gid int, xyz_from varchar, xyz_to varchar, tee varchar, geom geometry);
+
+create or replace function vectiles_input.azimuth_based_z_level_fix(xyz varchar, tee_gids int[])
+returns table (xyz text, tee_gids int[], tee_zs int[], new_z int) as
+$$
+with
+    data as (
+        select
+            st_force2d(
+                case
+                    when xyz_from=$1 then st_linesubstring(geom, 0, 1/st_length(geom))
+                    else st_linesubstring(geom, 1-(1/st_length(geom)), 1)
+                end
+            ) as geom,
+            $1 as inter,
+            xyz_from,
+            xyz_to, tee, gid
+        from
+            vectiles_input.e_501_tee_j
+        where
+            gid = any($2) and
+            array_upper($2, 1) % 2 = 0
+    )
+select
+    inter, tee_gids,
+    tee_zs,
+    case
+        when lag(tee_zs) over (order by rn) is null and tee_zs[1]=-1 then -1
+        when lag(tee_zs) over (order by rn) is null and within_a_bridge=true then 0
+        when lag(tee_zs) over (order by rn) is null then 0
+        when within_a_bridge is null then 0
+        else 1
+    end as new_z
+from (
+    select
+        row_number() over(order by z.z) as rn,
+        inter,
+        g.g as tee_gids,
+        z.z as tee_zs,
+        f.within_a_bridge
+    from (
+        select
+            row_number() over (
+                partition by my.my_gid order by abs(
+                    st_azimuth(st_startpoint(my.my_geom), st_endpoint(my.my_geom))-
+                        st_azimuth(st_startpoint(other.geom), st_endpoint(other.geom))
+                )
+            ) rn,
+            tmp.z as my_z,
+            o.z as other_z,
+            my.*,
+            other.geom as other_geom, other.gid as other_gid, other.tee as other_tee,
+            st_azimuth(st_startpoint(my.my_geom), st_endpoint(my.my_geom)) as my_azimuth,
+            st_azimuth(st_startpoint(other.geom), st_endpoint(other.geom)) as other_azimuth,
+            st_within(tmp.geom, b.geom) as within_a_bridge
+        from (
+            select
+                my.inter,
+                my.tee as my_tee, my.gid as my_gid,
+                case
+                    when my.inter = my.xyz_to then my.geom
+                    else st_reverse(my.geom)
+                end as my_geom
+            from
+                data my
+        ) my
+            join lateral (
+                select
+                    gid, tee,
+                    case
+                        when data.inter = data.xyz_from then data.geom
+                        else st_reverse(data.geom)
+                    end as geom
+                from data
+                where my.my_gid != data.gid and my.inter = data.inter
+            ) other on true
+            left join vectiles_input.tee_tmp tmp on tmp.xyz = my.inter and tmp.tee_gid = my.my_gid
+            left join vectiles_input.tee_tmp o on o.xyz = my.inter and o.tee_gid = other.gid
+            left join vectiles_input.bridges b on st_within(tmp.geom, b.geom)
+        ) f
+        join lateral (select array_agg(g order by g) as g from unnest(array[my_gid, other_gid]) g) g on true
+        join lateral (select array_agg(z order by z) as z from unnest(array[my_z, other_z]) z) z on true
+    where rn = 1
+    group by inter, tee_gids, tee_zs, within_a_bridge
+) n
+;
+$$
+language sql
+parallel unsafe;

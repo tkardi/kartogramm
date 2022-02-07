@@ -5,10 +5,14 @@ import os
 from datetime import datetime
 
 TABLES = [
+    '0000.init.bridges',
+    '0000.init.tunnels',
+    '0010.prep.roads',
+    '0011.prep.railways',
     'waterline', 'water',
     'natural', 'agricultural',
     'builtup', 'infrastructure',
-    'railways', 'roads',
+    'roads', 'railways',
     'boundaries', 'labels'
 ]
 
