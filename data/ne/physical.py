@@ -8,7 +8,7 @@ import tempfile
 
 from datetime import datetime
 
-URL = 'https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/10m_physical.zip'
+URL = 'https://naciscdn.org/naturalearth/10m/physical/10m_physical.zip'
 FILES = [
     {'filename': 'ne_10m_lakes'},
     {'filename': 'ne_10m_lakes_europe'},

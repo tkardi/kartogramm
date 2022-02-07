@@ -44,14 +44,15 @@ def prepare(**kwargs):
             with connection.cursor() as cursor:
                 cursor.execute('truncate table vectiles_input.ee_address_object restart identity')
 
-        cmd = 'psql -h %(host)s -d %(dbname)s -U %(user)s -c "\\copy vectiles_input.%(tabname)s (adob_id,ads_oid,adob_liik,orig_tunnus,etak_id,ads_kehtiv,un_tunnus,hoone_oid,adr_id,koodaadress,taisaadress,lahiaadress,aadr_olek,viitepunkt_x,viitepunkt_y,tase1_kood,tase1_nimetus,tase1_nimetus_liigiga,tase2_kood,tase2_nimetus,tase2_nimetus_liigiga,tase3_kood,tase3_nimetus,tase3_nimetus_liigiga,tase4_kood,tase4_nimetus,tase4_nimetus_liigiga,tase5_kood,tase5_nimetus,tase5_nimetus_liigiga,tase6_kood,tase6_nimetus,tase6_nimetus_liigiga,tase7_kood,tase7_nimetus,tase7_nimetus_liigiga,tase8_kood,tase8_nimetus,tase8_nimetus_liigiga) FROM \'%(fp)s\' delimiter \';\' null \'\' csv header encoding \'WIN1257\'"' % kw
+        cmd = 'PGOPTIONS=--datestyle=German psql -h %(host)s -d %(dbname)s -U %(user)s -c "\\copy vectiles_input.%(tabname)s (adob_id,ads_oid,adob_liik,orig_tunnus,etak_id,ads_kehtiv,un_tunnus,hoone_oid,adr_id,koodaadress,taisaadress,lahiaadress,aadr_olek,viitepunkt_x,viitepunkt_y,tase1_kood,tase1_nimetus,tase1_nimetus_liigiga,tase2_kood,tase2_nimetus,tase2_nimetus_liigiga,tase3_kood,tase3_nimetus,tase3_nimetus_liigiga,tase4_kood,tase4_nimetus,tase4_nimetus_liigiga,tase5_kood,tase5_nimetus,tase5_nimetus_liigiga,tase6_kood,tase6_nimetus,tase6_nimetus_liigiga,tase7_kood,tase7_nimetus,tase7_nimetus_liigiga,tase8_kood,tase8_nimetus,tase8_nimetus_liigiga) FROM \'%(fp)s\' delimiter \';\' null \'\' csv header encoding \'WIN1257\'"' % kw
 
         print ('%s Importing %s to vectiles_input.%s' % (datetime.now(), kw['fp'], kw['tabname']))
         subprocess.call(cmd, shell=True)
         print('%s Done' % datetime.now())
         with psycopg2.connect(**kwargs) as connection:
             with connection.cursor() as cursor:
-                cursor.execute('update vectiles_input.ee_address_object set geom = st_setsrid(st_point(viitepunkt_x, viitepunkt_y), 3301)')
+                cursor.execute('delete from vectiles_input.ee_address_object where viitepunkt_x is null')
+                cursor.execute('update vectiles_input.ee_address_object set geom = st_setsrid(st_point(replace(viitepunkt_x, \',\', \'.\')::numeric, replace(viitepunkt_y,\',\', \'.\')::numeric), 3301)')
         print('%s Done geom update' % datetime.now())
 
 

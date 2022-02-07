@@ -8,7 +8,8 @@ import psycopg2
 from datetime import datetime
 
 FILES = [
-    {'filename': 'informal_district', 'url': 'https://gis.tartulv.ee/arcgis/rest/services/Planeeringud/GI_linnaosad/MapServer/0/query?where=1%3D1&outfields=objectid,nimi&outSR=4326&f=geojson'}
+    {'filename': 'informal_district', 'url': 'https://gis.tartulv.ee/arcgis/rest/services/Planeeringud/GI_linnaosad/MapServer/0/query?where=1%3D1&outfields=objectid,nimi&outSR=4326&f=geojson'},
+    {'filename': 'informal_district', 'url': 'https://gis.tallinn.ee/arcgis/rest/services/veebikaart/Asumid_veebikaart/MapServer/0/query?where=1%3D1&outfields=objectid,asumi_nimi&outSR=4326&f=geojson'}
 ]
 
 def get_data(**kwargs):
@@ -31,8 +32,8 @@ def prepare(**kwargs):
                     name, geom
                 )
                 select
-                    (properties->>'NIMI')::varchar as name,
-                    st_transform(st_setsrid(st_geomfromgeojson(geometry), 4326), 3301) as geom
+                    coalesce((properties->>'NIMI'), (properties->>'asumi_nimi'))::varchar as name,
+                    (st_dump(st_transform(st_setsrid(st_geomfromgeojson(geometry), 4326), 3301))).geom as geom
                 from
                     json_to_recordset(
                         (select datas#>'{features}' as features from data_upload)

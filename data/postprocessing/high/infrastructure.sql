@@ -57,6 +57,50 @@ insert into vectiles.infrastructure (
     geom, originalid, name, type, subtype
 )
 select
+    st_subdivide((st_dump(
+        st_buffer(
+            st_snaptogrid(
+                st_force2d(
+                    st_buffer(geom, 1.5, 'endcap=flat join=mitre mitre_limit=5.0')
+                ),
+                0.1
+            ),
+            0
+        )
+    )).geom, 256) as geom,
+    etak_id, null as nimetus,
+    'bridge'::vectiles.type_infrastructure as type,
+    'bridge.'::vectiles.subtype_infrastructure as subtype
+from vectiles_input.e_505_liikluskorralduslik_rajatis_j
+where tyyp=40
+;
+
+insert into vectiles.infrastructure (
+    geom, originalid, name, type, subtype
+)
+select
+    st_subdivide((st_dump(
+        st_buffer(
+            st_snaptogrid(
+                st_force2d(
+                    st_buffer(geom, 1.5, 'endcap=flat join=mitre mitre_limit=5.0')
+                ),
+                0.1
+            ),
+            0
+        )
+    )).geom, 256) as geom,
+    etak_id, null as nimetus,
+    'tunnel'::vectiles.type_infrastructure as type,
+    'tunnel.'::vectiles.subtype_infrastructure as subtype
+from vectiles_input.e_505_liikluskorralduslik_rajatis_j
+where tyyp=50
+;
+
+insert into vectiles.infrastructure (
+    geom, originalid, name, type, subtype
+)
+select
     st_subdivide((st_dump(st_buffer(st_snaptogrid(st_force2d(geom), 0.1), 0))).geom, 256) as geom, etak_id, null,
     'parking'::vectiles.type_infrastructure as type,
     'parking.'::vectiles.subtype_infrastructure as subtype
@@ -94,5 +138,5 @@ select
     'runway'::vectiles.type_infrastructure as type,
     'runway.'::vectiles.subtype_infrastructure as subtype
 from vectiles_input.e_301_muu_kolvik_ka
-where tyyp = (40)
+where tyyp = 40
 ;
