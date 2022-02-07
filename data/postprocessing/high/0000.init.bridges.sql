@@ -28,7 +28,10 @@ from
     left join lateral(
         select array_agg(etak_id) etak_ids, st_union(st_intersection(ka.geom, j.geom)) as geom
         from vectiles_input.e_502_roobastee_j j
-        where st_intersects(ka.geom, j.geom)
+        where
+            st_intersects(ka.geom, j.geom) and
+            /* but not tramlines */
+            j.tyyp != 40
     ) r on true
 where
     ka.tyyp = 30
@@ -67,7 +70,10 @@ from
     left join lateral(
         select array_agg(etak_id) etak_ids, st_union(st_intersection(g, j.geom)) as geom
         from vectiles_input.e_502_roobastee_j j
-        where st_intersects(ka.geom, j.geom)
+        where
+            st_intersects(ka.geom, j.geom) and
+            /* but not tramlines */
+            j.tyyp != 40
     ) r on true
 where
     ka.tyyp = 40

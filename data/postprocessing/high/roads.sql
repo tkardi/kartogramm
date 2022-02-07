@@ -586,7 +586,8 @@ from vectiles_input.e_503_siht_j
 
 
 /* if a road segment at relative_height=0 intersects a bridge that intersects a */
-/* waterbody so that the road segment also intersects said waterbody sergment (within the bridges' area) */
+/* a) waterbody so that the road segment also intersects said waterbody sergment (within the bridges' area), or */
+/* b) intersects a railway on a bridge that's marked for_rail=false (i.e rail goes under the bridge) */
 /* then in all probability it's a road on top of a bridge over a waterbody */
 
 drop table if exists vectiles_input.roads_fix_bridges;
@@ -618,9 +619,18 @@ from (
             select st_union(b.geom) as geom
             from
                 vectiles_input.bridges b
+                    left join
+                        vectiles_input.rail_road_inter_calc c on
+                            c.bridge_gid = b.gid
             where
                 st_intersects(b.geom, r.geom) and
-                st_intersects(b.water_geoms, vectiles_input.st_extend(r.geom, 10, 0))
+                (
+                    st_intersects(b.water_geoms, vectiles_input.st_extend(r.geom, 10, 0)) or
+                    (
+                        st_intersects(b.rail_geoms, vectiles_input.st_extend(r.geom, 10, 0)) and
+                        c.for_rail=false
+                    )
+                )
         ) b on true
     where r.relative_height = 0
 ) c
@@ -676,7 +686,9 @@ from (
                 st_intersects(b.geom, r.geom) and
                 st_intersects(b.rail_geoms, vectiles_input.st_extend(r.geom, 10, 0))
         ) b on true
-    where r.relative_height = 0 and r.type in ('bike', 'path')
+    where
+        r.relative_height = 0 and
+        r.type in ('bike', 'path')
 ) c
     left join vectiles.roads r on r.oid = c.oid
 ;
