@@ -625,7 +625,10 @@ from (
             where
                 st_intersects(b.geom, r.geom) and
                 (
-                    st_intersects(b.water_geoms, vectiles_input.st_extend(r.geom, 10, 0)) or
+                    (
+                        st_intersects(b.water_geoms, vectiles_input.st_extend(r.geom, 10, 0)) and
+                        coalesce(c.for_rail, false)=false
+                    ) or
                     (
                         st_intersects(b.rail_geoms, vectiles_input.st_extend(r.geom, 10, 0)) and
                         c.for_rail=false

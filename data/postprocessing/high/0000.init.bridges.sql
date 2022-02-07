@@ -22,6 +22,11 @@ from
                         a.etak_id as etak_id, (st_dump(st_intersection(ka.geom, a.geom))).geom as geom
                     from vectiles_input.e_202_seisuveekogu_a a
                     where st_intersects(ka.geom, a.geom)
+                    union all
+                    select
+                        a.etak_id as etak_id, (st_dump(st_intersection(ka.geom, a.geom))).geom as geom
+                    from vectiles_input.e_203_vooluveekogu_a a
+                    where st_intersects(ka.geom, a.geom)
                 ) b
             ) f
         ) v on true
@@ -61,8 +66,13 @@ from
                     etak_id, st_boundary(geom) as geom
                 from (
                     select
-                        a.etak_id as etak_id, (st_dump(st_intersection(g, a.geom))).geom as geom
+                        a.etak_id as etak_id, (st_dump(st_intersection(ka.geom, a.geom))).geom as geom
                     from vectiles_input.e_202_seisuveekogu_a a
+                    where st_intersects(ka.geom, a.geom)
+                    union all
+                    select
+                        a.etak_id as etak_id, (st_dump(st_intersection(ka.geom, a.geom))).geom as geom
+                    from vectiles_input.e_203_vooluveekogu_a a
                     where st_intersects(ka.geom, a.geom)
                 ) b
             ) f

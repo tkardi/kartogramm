@@ -45,11 +45,15 @@ from vectiles_input.e_502_roobastee_j  r, (
         select r.gid, (st_dump(st_split(r.geom, b.bridges))).geom as split, b.bridge_gids
         from vectiles_input.e_502_roobastee_j r, (
             select r.gid as rail_gid, st_union(b.geom) as bridges, array_agg(b.gid) as bridge_gids
-            from vectiles_input.bridges b, vectiles_input.e_502_roobastee_j r, vectiles_input.rail_road_inter_calc c
+            from
+                vectiles_input.e_502_roobastee_j r,
+                vectiles_input.bridges b
+                    left join
+                        vectiles_input.rail_road_inter_calc c on
+                            b.gid = c.bridge_gid
             where
                 st_intersects(b.geom, r.geom) and
-                b.gid = c.bridge_gid and
-                c.for_rail = true and
+                (coalesce(c.for_rail,false) = true or b.water_geoms is not null) and
                 r.tyyp != 40
             group by r.gid
         ) b
@@ -181,13 +185,6 @@ from vectiles_input.e_502_roobastee_j  r, (
             from vectiles_input.tunnels t
             where st_within(foo.split, st_buffer(t.geom, 0.5))
         ) t on true
-/*        left join lateral (
-            select st_union(st_intersection(j.geom, b.bridge)) as geom
-            from vectiles.roads j
-            where
-                st_intersects(j.geom, b.bridge) and
-                j.relative_height <= 0
-        ) t on true*/
         left join lateral(
             select st_union(st_intersection(j.geom, b.bridge)) as geom
             from vectiles.railways j
