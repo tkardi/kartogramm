@@ -1,7 +1,5 @@
 /* ROADS */
 
-/* DATA PREPARTION */
-
 truncate table vectiles.roads restart identity;
 /* insert e_501_tee_j */
 

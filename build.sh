@@ -1,4 +1,5 @@
 #!/bin/bash
+p_CURDIR=${PWD}
 
 rm -rf ./kartogramm-build || true
 mkdir ./kartogramm-build
@@ -11,3 +12,5 @@ cp -r ./docker/** ./kartogramm-build
 cd kartogramm-build
 
 docker build --tag localhost/kartogramm -f Dockerfile .
+
+cd $p_CURDIR

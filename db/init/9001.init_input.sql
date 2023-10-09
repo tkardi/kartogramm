@@ -70,6 +70,7 @@ create table vectiles_input.ee_address_object (
     ads_kehtiv timestamp,
     un_tunnus smallint,
     hoone_oid varchar(20),
+    olek varchar,
     adr_id int,
     koodaadress varchar(50),
     taisaadress varchar(500),
