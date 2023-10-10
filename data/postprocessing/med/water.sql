@@ -29,6 +29,18 @@ from vectiles_input.oceans
 
 insert into vectiles_input.tmp_z_med_water(
     geom,
+    originalid, name,
+    type
+)
+select
+    st_subdivide((st_dump(st_transform(geom,4326))).geom, 512) as geom,
+    null as etak_id, null as name,
+    'sea'::vectiles.type_water
+from vectiles_input.sea
+;
+
+insert into vectiles_input.tmp_z_med_water(
+    geom,
     originalid,
     name, type
 )

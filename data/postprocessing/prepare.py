@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 
 TABLES = [
+    'oceans',
     '0000.init.bridges',
     '0000.init.tunnels',
     '0010.prep.roads',
@@ -13,10 +14,11 @@ TABLES = [
     'natural', 'agricultural',
     'builtup', 'infrastructure',
     'roads', 'railways',
-    'boundaries', 'labels'
+    'boundaries', 'labels',
 ]
 
 ZOOMS = [
+    'init',
     'low',
     'med',
     'high'
@@ -28,7 +30,7 @@ def _strip_line_comments(sql_line):
     return sql_line.split('--')[0].strip()
 
 def get_sql(zooms, table):
-    assert zooms in ['low', 'med', 'high'], 'zooms must be one of low, med, or high. Was "%s"' % zooms
+    assert zooms in ['low', 'med', 'high', 'init'], 'zooms must be one of low, med, or high. Was "%s"' % zooms
     p = os.path.dirname(os.path.abspath(__file__))
     fp = os.path.join(p, zooms, '%s.sql' % table)
     if os.path.exists(fp):
