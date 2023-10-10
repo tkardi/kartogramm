@@ -71,13 +71,34 @@ insert into vectiles.z_low_water(
     geom, originalid, name, type
 )
 select
+    (st_dump(st_buildarea(st_collect(ring)))).geom as geom, null as originalid, name, type
+from (
+    select
+        (st_dumprings(st_simplifypreservetopology(st_transform((st_dump((geom))).geom, 4326), 0.00001))).geom as ring,
+        null as etak_id, null as name,
+        'sea'::vectiles.type_water as type
+    from
+        vectiles_input.sea
+) foo
+where
+    st_area(foo.ring, true) > 10000000
+group by
+    name, type
+;
+
+
+
+insert into vectiles.z_low_water(
+    geom, originalid, name, type
+)
+select
     (st_dump(geom)).geom, null as originalid, name,
     'lake'::vectiles.type_water as type
 from
     vectiles_input.ne_10m_lakes
 where
     st_area(geom, true)> 1000000 and
-    name not in ('Lake Peipus', 'Võrtsjärv', 'Pskoyskoye Ozero')
+    name not in ('Lake Peipus', 'Võrtsjärv', 'Lake Pskov')
 union all
 select
     (st_dump(geom)).geom, null as originalid, name,
@@ -86,5 +107,5 @@ from
     vectiles_input.ne_10m_lakes_europe
 where
     st_area(geom, true)> 100000 and
-    name not in ('Lake Peipus', 'Võrtsjärv', 'Pskoyskoye Ozero', 'Lake Usma', 'Engure', 'Babīte Ezers', 'Pljavinjas')
+    name not in ('Lake Peipus', 'Võrtsjärv', 'Pskoyskoye Ozero', 'Lake Usma', 'Engure', 'Babīte Ezers', 'Pljavinjas', 'Lake Pskov')
 ;
